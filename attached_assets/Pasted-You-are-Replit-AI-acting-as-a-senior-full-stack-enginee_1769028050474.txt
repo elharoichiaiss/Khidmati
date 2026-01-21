@@ -1,0 +1,235 @@
+You are Replit AI acting as a senior full-stack engineer, database architect, and product designer.
+
+Build a FULL Service Marketplace MVP web application called "Khidmati".
+
+This project is a WEB APP first (browser-based) and must be:
+- Responsive (Desktop, Tablet, Mobile)
+- Clean
+- Simple
+- Scalable
+- Ready to be converted later into Android and iOS apps
+
+================================================
+APP OVERVIEW
+================================================
+App Name: Khidmati
+
+Khidmati is a service marketplace that connects:
+1) Clients (people looking for services)
+2) Service Providers (electricians, plumbers, technicians, etc.)
+
+This is an MVP:
+- No payments
+- No suppliers
+- No GPS tracking
+- Focus only on profiles, search, messaging, reviews
+
+================================================
+TECH STACK
+================================================
+- Next.js (App Router)
+- MongoDB
+- API-based architecture
+- Responsive CSS
+- Clean modular code
+
+================================================
+MULTI-LANGUAGE SUPPORT
+================================================
+The app must support:
+- Arabic (default, RTL)
+- French (LTR)
+- English (LTR)
+
+Requirements:
+- Language switcher always visible in the TOP NAVBAR
+- User can change language at any time
+- Selected language is saved per user
+- RTL/LTR layout switches automatically
+
+================================================
+LAYOUT & NAVIGATION
+================================================
+- A FIXED (STICKY) TOP NAVBAR that remains visible on all pages
+- Navbar includes:
+  - App name: Khidmati (clickable → Home)
+  - Language switcher (AR / FR / EN)
+  - Login / Register buttons
+  - User menu when logged in
+
+================================================
+HOME PAGE
+================================================
+The Home page must include:
+- Big title with the app name: Khidmati
+- Short subtitle explaining the service
+- Call-to-action buttons:
+  - "Find a Service"
+  - "Join as a Provider"
+
+================================================
+USER ROLES
+================================================
+
+1) CLIENT
+- Can register and login
+- Select city and service category
+- Search for nearby service providers
+- View provider profiles
+- Send messages
+- Leave reviews & ratings after service
+
+2) SERVICE PROVIDER
+- Can register and login
+- Create and edit professional profile
+- Add:
+  - Service category
+  - City / cities served
+  - Bio
+  - Years of experience
+- Upload profile image
+- Upload photos of completed works (portfolio)
+- Receive messages
+- View ratings and reviews
+
+================================================
+DATABASE ARCHITECTURE (MONGODB)
+================================================
+
+----------------------------
+USER COLLECTION
+----------------------------
+Fields:
+- _id
+- fullName
+- email
+- phone
+- password (hashed)
+- role ("client" | "provider")
+- city
+- language ("ar" | "fr" | "en")
+- createdAt
+- updatedAt
+
+----------------------------
+PROVIDER PROFILE COLLECTION
+----------------------------
+Fields:
+- userId (reference to User)
+- serviceCategory
+- bio
+- yearsOfExperience
+- citiesServed (array)
+- profileImage (URL)
+- portfolioImages (array of URLs)
+- averageRating
+- totalReviews
+- isAvailable
+- createdAt
+- updatedAt
+
+----------------------------
+PORTFOLIO COLLECTION
+----------------------------
+Fields:
+- providerId
+- images (array of URLs)
+- description
+- createdAt
+
+Images must be stored as URLs (cloud-ready).
+
+----------------------------
+MESSAGING SYSTEM
+----------------------------
+Conversation collection:
+- participants (userId array)
+- lastMessage
+- updatedAt
+
+Message collection:
+- conversationId
+- senderId
+- text
+- createdAt
+- readStatus
+
+----------------------------
+REVIEWS & RATINGS
+----------------------------
+Review collection:
+- providerId
+- clientId
+- rating (1 to 5)
+- comment
+- createdAt
+
+Rules:
+- Only clients can submit reviews
+- One review per completed service
+- Reviews cannot be edited after submission
+- Average rating updates automatically
+- Admin can remove abusive reviews
+
+================================================
+SEARCH & DISCOVERY
+================================================
+- Client selects city and service category
+- Providers filtered by:
+  - City
+  - Service category
+- Sorted by:
+  - Highest rating
+  - Most active providers
+- No GPS (city-based logic only)
+
+================================================
+POLICIES (LEGAL PROTECTION)
+================================================
+Generate and include the following policies in:
+- Arabic
+- French
+- English
+
+Policies required:
+1) Terms of Use
+   - Platform is an intermediary only
+   - Users are responsible for their actions
+   - Right to suspend or delete accounts
+
+2) Privacy Policy
+   - Data collection explanation
+   - No sharing with third parties
+   - Message privacy
+
+3) Review & Rating Policy
+   - Honest reviews only
+   - No abuse or fake reviews
+   - Admin moderation rights
+
+4) Image Upload Policy
+   - Only real work images
+   - No stolen or inappropriate images
+   - Violations lead to removal or suspension
+
+================================================
+DESIGN & UX RULES
+================================================
+- Mobile-first
+- Simple and clean UI
+- Non-technical user friendly
+- RTL/LTR fully supported
+- Fixed navbar on all pages
+
+================================================
+IMPORTANT RULES
+================================================
+- This is an MVP
+- Do NOT over-engineer
+- Keep code clean, modular, and scalable
+- Prepare structure for future:
+  - Payments
+  - Suppliers
+  - Mobile apps
+
+Proceed step by step and build the project cleanly.
