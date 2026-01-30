@@ -70,9 +70,26 @@ export function registerObjectStorageRoutes(app: Express): void {
    * This serves files from object storage. For public files, no auth needed.
    * For protected files, add authentication middleware and ACL checks.
    */
-  app.get("/objects/:objectPath(*)", async (req, res) => {
+  // Use app.use to avoid wildcard matching issues with path-to-regexp
+  app.use("/objects", async (req, res, next) => {
+    if (req.method !== "GET") return next();
     try {
-      const objectFile = await objectStorageService.getObjectEntityFile(req.path);
+      // Reconstruct the full path /objects/...
+      // In app.use, req.path is relative to the mount point (/objects)
+      // e.g. /uploads/file.jpg
+      // But getObjectEntityFile might need /objects/uploads/file.jpg or just /uploads/file.jpg
+      // Let's check getObjectEntityFile implementation in objectStorage.ts
+      
+      // Checking objectStorage.ts:
+      // if (!objectPath.startsWith("/objects/")) throw new ObjectNotFoundError();
+      
+      // So it expects /objects/... 
+      // We need to construct the full path.
+      // req.baseUrl is /objects
+      // req.path is /uploads/file.jpg
+      const fullPath = (req.baseUrl || "/objects") + req.path;
+      
+      const objectFile = await objectStorageService.getObjectEntityFile(fullPath);
       await objectStorageService.downloadObject(objectFile, res);
     } catch (error) {
       console.error("Error serving object:", error);

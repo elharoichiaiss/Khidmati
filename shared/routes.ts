@@ -1,4 +1,15 @@
 import { z } from 'zod';
+export { 
+  insertUserSchema, 
+  insertProviderProfileSchema, 
+  insertReviewSchema, 
+  insertMessageSchema,
+  users,
+  providerProfiles,
+  reviews,
+  conversations,
+  messages
+} from './schema';
 import { 
   insertUserSchema, 
   insertProviderProfileSchema, 
