@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import type { Server } from "http";
+import passport from "passport";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
@@ -44,7 +45,7 @@ export async function registerRoutes(
 
   app.post(api.auth.login.path, (req, res, next) => {
     // Using passport.authenticate middleware logic inside the route handler for custom response
-    const authMiddleware = require("passport").authenticate("local", (err: any, user: any, info: any) => {
+    const authMiddleware = passport.authenticate("local", (err: any, user: any, info: any) => {
       if (err) return next(err);
       if (!user) {
         return res.status(401).json({ message: info?.message || "Authentication failed" });
