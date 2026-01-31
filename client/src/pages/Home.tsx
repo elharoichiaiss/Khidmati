@@ -6,11 +6,15 @@ import { Link, useLocation } from "wouter";
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { useLanguage } from "@/hooks/use-language";
+import { useProviders } from "@/hooks/use-providers";
+import { ProviderCard } from "@/components/ProviderCard";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Home() {
   const [search, setSearch] = useState("");
   const [location, setLocation] = useLocation();
   const { t } = useLanguage();
+  const { data: providers, isLoading } = useProviders({});
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,6 +85,33 @@ export default function Home() {
             <Link href="/search?c=electrician" className="text-white hover:text-primary underline decoration-primary/50 underline-offset-4">Electrician</Link>
             <Link href="/search?c=moving" className="text-white hover:text-primary underline decoration-primary/50 underline-offset-4">Moving</Link>
           </motion.div>
+        </div>
+      </section>
+
+      {/* Featured Providers - عرض المزودين */}
+      <section className="py-16 bg-background border-t">
+        <div className="container mx-auto px-4">
+          <div className="flex items-center justify-between mb-10">
+            <h2 className="text-3xl md:text-4xl font-bold">مزودو الخدمة</h2>
+            <Link href="/search">
+              <Button variant="outline" size="sm">عرض الكل</Button>
+            </Link>
+          </div>
+          {isLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-64 rounded-2xl" />
+              ))}
+            </div>
+          ) : providers && providers.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {providers.slice(0, 6).map((provider) => (
+                <ProviderCard key={provider.id} provider={provider} />
+              ))}
+            </div>
+          ) : (
+            <p className="text-muted-foreground text-center py-8">لا يوجد مزودون مسجلون حالياً. جرّب صفحة البحث أو سجّل كمزود.</p>
+          )}
         </div>
       </section>
 

@@ -19,9 +19,9 @@ export default function SearchPage() {
   const [city, setCity] = useState("");
 
   const { data: providers, isLoading } = useProviders({ 
-    search: query, 
-    category: category === "all" ? undefined : category, 
-    city: city === "all" ? undefined : city 
+    search: query || undefined, 
+    category: (category === "all" || !category) ? undefined : category, 
+    city: (city === "all" || !city) ? undefined : city 
   });
 
   return (
