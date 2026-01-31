@@ -217,9 +217,26 @@ export async function registerRoutes(
 }
 
 async function seedDatabase() {
+  // Ensure Admin exists
+  const existingAdmin = await storage.getUserByUsername("admin");
+  if (!existingAdmin) {
+    console.log("Seeding admin user...");
+    await storage.createUser({
+      username: "admin",
+      password: "admin123",
+      fullName: "Admin User",
+      role: "admin",
+      city: "Casablanca",
+      email: "admin@khidmati.com",
+      phone: "0000000000",
+      language: "ar"
+    });
+  }
+
+  // Seed other data if provider1 doesn't exist
   const existingUser = await storage.getUserByUsername("provider1");
   if (!existingUser) {
-    console.log("Seeding database...");
+    console.log("Seeding demo data...");
 
     // Create a Provider
     const provider = await storage.createUser({
@@ -238,18 +255,6 @@ async function seedDatabase() {
         citiesServed: ["Casablanca", "Mohammedia"],
         isAvailable: true,
       }
-    });
-
-    // Create Admin
-    await storage.createUser({
-      username: "admin",
-      password: "admin123",
-      fullName: "Admin User",
-      role: "admin",
-      city: "Casablanca",
-      email: "admin@khidmati.com",
-      phone: "0000000000",
-      language: "ar"
     });
 
     // Create a Client
@@ -273,5 +278,17 @@ async function seedDatabase() {
     });
 
     console.log("Seeding complete.");
+  }
+}
+
+// Create a Review
+await storage.createReview({
+  providerId: provider.id,
+  clientId: client.id,
+  rating: 5,
+  comment: "Excellent service, very professional!"
+});
+
+console.log("Seeding complete.");
   }
 }
