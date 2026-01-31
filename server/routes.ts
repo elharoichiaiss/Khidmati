@@ -14,9 +14,6 @@ export async function registerRoutes(
   // Setup Authentication
   setupAuth(app);
 
-  // Setup Object Storage Routes
-  registerObjectStorageRoutes(app);
-
   // Auth Routes
   app.post(api.auth.register.path, async (req, res, next) => {
     try {
