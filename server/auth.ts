@@ -40,12 +40,16 @@ export function setupAuth(app: Express) {
         if (!user) {
           return done(null, false, { message: "Incorrect username." });
         }
-        
+
         const isValid = await compare(password, user.password);
         if (!isValid) {
           return done(null, false, { message: "Incorrect password." });
         }
-        
+
+        if (user.isBanned) {
+          return done(null, false, { message: "Account is banned" });
+        }
+
         return done(null, user);
       } catch (err) {
         return done(err);
