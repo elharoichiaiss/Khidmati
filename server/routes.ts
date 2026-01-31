@@ -210,6 +210,11 @@ export async function registerRoutes(
     res.sendStatus(204);
   });
 
+  app.patch("/api/admin/users/:id/ban", requireAdmin, async (req, res) => {
+    const user = await storage.toggleUserBan(Number(req.params.id));
+    res.json(user);
+  });
+
   // Seed Data
   await seedDatabase();
 

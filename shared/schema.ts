@@ -15,6 +15,7 @@ export const users = pgTable("users", {
   phone: text("phone"),
   city: text("city"),
   language: text("language", { enum: ["ar", "fr", "en"] }).default("ar"),
+  isBanned: boolean("is_banned").default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

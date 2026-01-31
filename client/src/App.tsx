@@ -12,6 +12,8 @@ import ProviderDetail from "@/pages/ProviderDetail";
 import Messages from "@/pages/Messages";
 import Profile from "@/pages/Profile";
 import AdminDashboard from "@/pages/AdminDashboard";
+import AdminUsersPage from "@/pages/admin/Users";
+import AdminLayout from "@/layouts/AdminLayout";
 
 function Router() {
   return (
@@ -23,7 +25,20 @@ function Router() {
       <Route path="/providers/:id" component={ProviderDetail} />
       <Route path="/messages" component={Messages} />
       <Route path="/profile" component={Profile} />
-      <Route path="/admin" component={AdminDashboard} />
+
+      {/* Admin Routes with nested switch for sub-routes */}
+      <Route path="/admin/:rest*">
+        {(params) => (
+          <AdminLayout>
+            <Switch>
+              <Route path="/admin" component={AdminDashboard} />
+              <Route path="/admin/users" component={AdminUsersPage} />
+              <Route path="/admin/settings" component={() => <div>Settings Page (Coming Soon)</div>} />
+            </Switch>
+          </AdminLayout>
+        )}
+      </Route>
+
       <Route component={NotFound} />
     </Switch>
   );

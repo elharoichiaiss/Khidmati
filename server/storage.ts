@@ -31,6 +31,7 @@ export interface IStorage {
   // Admin
   getAllUsers(): Promise<User[]>;
   deleteUser(id: number): Promise<void>;
+  toggleUserBan(id: number): Promise<User>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -240,6 +241,18 @@ export class DatabaseStorage implements IStorage {
 
   async deleteUser(id: number): Promise<void> {
     await db.delete(users).where(eq(users.id, id));
+  }
+
+  async toggleUserBan(id: number): Promise<User> {
+    const user = await this.getUser(id);
+    if (!user) throw new Error("User not found");
+
+    const [updatedUser] = await db
+      .update(users)
+      .set({ isBanned: !user.isBanned })
+      .where(eq(users.id, id))
+      .returning();
+    return updatedUser;
   }
 }
 
