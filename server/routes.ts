@@ -281,14 +281,4 @@ async function seedDatabase() {
   }
 }
 
-// Create a Review
-await storage.createReview({
-  providerId: provider.id,
-  clientId: client.id,
-  rating: 5,
-  comment: "Excellent service, very professional!"
-});
 
-console.log("Seeding complete.");
-  }
-}
