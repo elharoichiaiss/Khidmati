@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
-import { Menu, X, User, MessageSquare, LogOut, Globe } from "lucide-react";
+import { Menu, X, User, MessageSquare, LogOut, Globe, LayoutDashboard } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -72,7 +72,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     {/* Badge could go here */}
                   </Button>
                 </Link>
-                
+
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline" className="gap-2 rounded-full pl-2 pr-4 border-2 hover:bg-secondary/50">
@@ -89,6 +89,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
                         {t("profile")}
                       </Link>
                     </DropdownMenuItem>
+
+                    {user.role === 'admin' && (
+                      <DropdownMenuItem asChild>
+                        <Link href="/admin">
+                          <LayoutDashboard className="w-4 h-4 mr-2" />
+                          لوحة التحكم (Admin)
+                        </Link>
+                      </DropdownMenuItem>
+                    )}
+
                     <DropdownMenuItem onClick={() => logout()} className="text-destructive focus:text-destructive">
                       <LogOut className="w-4 h-4 mr-2" />
                       {t("logout")}
@@ -111,7 +121,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
 
           {/* Mobile Menu Toggle */}
-          <button 
+          <button
             className="md:hidden p-2 text-foreground"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           >
@@ -132,7 +142,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 {t("joinProvider")}
               </Link>
             )}
-            
+
             <div className="py-4 flex gap-4">
               <Button variant={language === 'en' ? 'default' : 'outline'} size="sm" onClick={() => setLanguage('en')}>EN</Button>
               <Button variant={language === 'fr' ? 'default' : 'outline'} size="sm" onClick={() => setLanguage('fr')}>FR</Button>
@@ -147,6 +157,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <Link href="/profile" onClick={() => setIsMobileMenuOpen(false)} className="py-2">
                   {t("profile")}
                 </Link>
+                {user.role === 'admin' && (
+                  <Link href="/admin" onClick={() => setIsMobileMenuOpen(false)} className="py-2 text-primary font-bold">
+                    لوحة التحكم (Admin)
+                  </Link>
+                )}
                 <Button variant="destructive" onClick={() => { logout(); setIsMobileMenuOpen(false); }}>
                   {t("logout")}
                 </Button>
@@ -182,7 +197,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               Connecting trusted professionals with clients across the region. Quality service, guaranteed.
             </p>
           </div>
-          
+
           <div>
             <h4 className="font-bold mb-4">Platform</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
