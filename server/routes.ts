@@ -5,7 +5,7 @@ import { setupAuth } from "./auth";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
-import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
+
 
 export async function registerRoutes(
   httpServer: Server,
@@ -13,7 +13,7 @@ export async function registerRoutes(
 ): Promise<Server> {
   // Setup Authentication
   setupAuth(app);
-  
+
   // Setup Object Storage Routes
   registerObjectStorageRoutes(app);
 
@@ -25,9 +25,9 @@ export async function registerRoutes(
       if (existingUser) {
         return res.status(400).json({ message: "Username already exists" });
       }
-      
+
       const user = await storage.createUser(input);
-      
+
       req.login(user, (err) => {
         if (err) return next(err);
         res.status(201).json(user);
@@ -35,8 +35,8 @@ export async function registerRoutes(
     } catch (err) {
       if (err instanceof z.ZodError) {
         return res.status(400).json({
-            message: err.errors[0].message,
-            field: err.errors[0].path.join('.'),
+          message: err.errors[0].message,
+          field: err.errors[0].path.join('.'),
         });
       }
       next(err);
@@ -106,10 +106,10 @@ export async function registerRoutes(
       res.json(updated);
     } catch (err) {
       if (err instanceof z.ZodError) {
-         return res.status(400).json({
-            message: err.errors[0].message,
-            field: err.errors[0].path.join('.'),
-         });
+        return res.status(400).json({
+          message: err.errors[0].message,
+          field: err.errors[0].path.join('.'),
+        });
       }
       throw err;
     }
@@ -125,11 +125,11 @@ export async function registerRoutes(
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const user = req.user as any;
     const providerId = Number(req.params.id);
-    
+
     // Validate inputs
     try {
       const input = api.reviews.create.input.parse(req.body);
-      
+
       const review = await storage.createReview({
         ...input,
         providerId,
@@ -138,10 +138,10 @@ export async function registerRoutes(
       res.status(201).json(review);
     } catch (err) {
       if (err instanceof z.ZodError) {
-         return res.status(400).json({
-            message: err.errors[0].message,
-            field: err.errors[0].path.join('.'),
-         });
+        return res.status(400).json({
+          message: err.errors[0].message,
+          field: err.errors[0].path.join('.'),
+        });
       }
       throw err;
     }
@@ -154,12 +154,12 @@ export async function registerRoutes(
     const conversations = await storage.getConversations(user.id);
     res.json(conversations);
   });
-  
+
   app.post(api.conversations.create.path, async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const user = req.user as any;
     const { targetUserId } = req.body;
-    
+
     const conversation = await storage.createConversation(user.id, targetUserId);
     res.status(201).json(conversation);
   });
@@ -168,13 +168,13 @@ export async function registerRoutes(
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const conversation = await storage.getConversation(Number(req.params.id));
     if (!conversation) return res.sendStatus(404);
-    
+
     // Security check: must be participant
     const user = req.user as any;
     if (conversation.participant1Id !== user.id && conversation.participant2Id !== user.id) {
-        return res.sendStatus(403);
+      return res.sendStatus(403);
     }
-    
+
     res.json(conversation);
   });
 
@@ -182,20 +182,37 @@ export async function registerRoutes(
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const user = req.user as any;
     const conversationId = Number(req.params.id);
-    
+
     try {
-        const { content } = api.messages.create.input.parse(req.body);
-        const message = await storage.createMessage({
-            conversationId,
-            senderId: user.id,
-            content,
-        });
-        res.status(201).json(message);
+      const { content } = api.messages.create.input.parse(req.body);
+      const message = await storage.createMessage({
+        conversationId,
+        senderId: user.id,
+        content,
+      });
+      res.status(201).json(message);
     } catch (err) {
-        throw err;
+      throw err;
     }
   });
-  
+
+  // Admin Routes
+  const requireAdmin = (req: any, res: any, next: any) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    if (req.user.role !== "admin") return res.sendStatus(403);
+    next();
+  };
+
+  app.get("/api/admin/users", requireAdmin, async (req, res) => {
+    const users = await storage.getAllUsers();
+    res.json(users);
+  });
+
+  app.delete("/api/admin/users/:id", requireAdmin, async (req, res) => {
+    await storage.deleteUser(Number(req.params.id));
+    res.sendStatus(204);
+  });
+
   // Seed Data
   await seedDatabase();
 
@@ -206,7 +223,7 @@ async function seedDatabase() {
   const existingUser = await storage.getUserByUsername("provider1");
   if (!existingUser) {
     console.log("Seeding database...");
-    
+
     // Create a Provider
     const provider = await storage.createUser({
       username: "provider1",
@@ -226,24 +243,36 @@ async function seedDatabase() {
       }
     });
 
+    // Create Admin
+    await storage.createUser({
+      username: "admin",
+      password: "admin123",
+      fullName: "Admin User",
+      role: "admin",
+      city: "Casablanca",
+      email: "admin@khidmati.com",
+      phone: "0000000000",
+      language: "ar"
+    });
+
     // Create a Client
     const client = await storage.createUser({
-        username: "client1",
-        password: "password123",
-        fullName: "Karim Client",
-        role: "client",
-        city: "Casablanca",
-        email: "karim@test.com",
-        phone: "0600000002",
-        language: "fr"
+      username: "client1",
+      password: "password123",
+      fullName: "Karim Client",
+      role: "client",
+      city: "Casablanca",
+      email: "karim@test.com",
+      phone: "0600000002",
+      language: "fr"
     });
-    
+
     // Create a Review
     await storage.createReview({
-        providerId: provider.id,
-        clientId: client.id,
-        rating: 5,
-        comment: "Excellent service, very professional!"
+      providerId: provider.id,
+      clientId: client.id,
+      rating: 5,
+      comment: "Excellent service, very professional!"
     });
 
     console.log("Seeding complete.");

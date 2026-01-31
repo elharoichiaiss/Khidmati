@@ -9,7 +9,7 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(), // email or phone can be username
   password: text("password").notNull(),
-  role: text("role", { enum: ["client", "provider"] }).notNull().default("client"),
+  role: text("role", { enum: ["client", "provider", "admin"] }).notNull().default("client"),
   fullName: text("full_name").notNull(),
   email: text("email"),
   phone: text("phone"),

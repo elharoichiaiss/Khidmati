@@ -11,6 +11,7 @@ import AuthPage from "@/pages/Auth";
 import ProviderDetail from "@/pages/ProviderDetail";
 import Messages from "@/pages/Messages";
 import Profile from "@/pages/Profile";
+import AdminDashboard from "@/pages/AdminDashboard";
 
 function Router() {
   return (
@@ -22,6 +23,7 @@ function Router() {
       <Route path="/providers/:id" component={ProviderDetail} />
       <Route path="/messages" component={Messages} />
       <Route path="/profile" component={Profile} />
+      <Route path="/admin" component={AdminDashboard} />
       <Route component={NotFound} />
     </Switch>
   );
