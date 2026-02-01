@@ -31,16 +31,22 @@ function Router() {
       {/* Secure Admin Routes */}
       <Route path="/k-admin-portal-secure/login" component={AdminLogin} />
 
-      <Route path="/k-admin-portal-secure/:rest*">
-        {(params) => (
-          <AdminLayout>
-            <Switch>
-              <Route path="/k-admin-portal-secure" component={AdminDashboard} />
-              <Route path="/k-admin-portal-secure/users" component={AdminUsersPage} />
-              <Route path="/k-admin-portal-secure/settings" component={() => <div>Settings Page (Coming Soon)</div>} />
-            </Switch>
-          </AdminLayout>
-        )}
+      <Route path="/k-admin-portal-secure">
+        <AdminLayout>
+          <AdminDashboard />
+        </AdminLayout>
+      </Route>
+
+      <Route path="/k-admin-portal-secure/users">
+        <AdminLayout>
+          <AdminUsersPage />
+        </AdminLayout>
+      </Route>
+
+      <Route path="/k-admin-portal-secure/settings">
+        <AdminLayout>
+          <div>Settings Page (Coming Soon)</div>
+        </AdminLayout>
       </Route>
 
       <Route component={NotFound} />

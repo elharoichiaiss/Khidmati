@@ -104,22 +104,22 @@ export default function AdminDashboard() {
                     </CardContent>
                 </Card>
 
-                <Card className="col-span-3 border-gray-200 shadow-sm bg-gradient-to-br from-slate-900 to-slate-800 text-white">
+                <Card className="col-span-3 border-none shadow-lg bg-gradient-to-br from-primary to-primary/80 text-primary-foreground">
                     <CardHeader>
-                        <CardTitle className="text-white">Quick Actions</CardTitle>
+                        <CardTitle className="text-primary-foreground">Quick Actions</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        <p className="text-sm text-slate-300">
+                        <p className="text-sm text-primary-foreground/80">
                             Manage your platform efficiently. Check for new provider applications or handle user reports.
                         </p>
                         <div className="grid gap-2">
-                            <button className="w-full text-left px-3 py-2 text-sm bg-white/10 hover:bg-white/20 rounded-md transition-colors border border-white/10">
+                            <button className="w-full text-left px-3 py-2 text-sm bg-white/10 hover:bg-white/20 rounded-md transition-colors border border-white/10 text-white font-medium">
                                 Send Notification to All
                             </button>
-                            <button className="w-full text-left px-3 py-2 text-sm bg-white/10 hover:bg-white/20 rounded-md transition-colors border border-white/10">
+                            <button className="w-full text-left px-3 py-2 text-sm bg-white/10 hover:bg-white/20 rounded-md transition-colors border border-white/10 text-white font-medium">
                                 Generate Monthly Report
                             </button>
-                            <button className="w-full text-left px-3 py-2 text-sm bg-white/10 hover:bg-white/20 rounded-md transition-colors border border-white/10">
+                            <button className="w-full text-left px-3 py-2 text-sm bg-white/10 hover:bg-white/20 rounded-md transition-colors border border-white/10 text-white font-medium">
                                 Review Settings
                             </button>
                         </div>

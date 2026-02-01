@@ -14,11 +14,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }, [admin, isLoading, location, setLocation]);
 
     if (isLoading) {
-        return <div className="min-h-screen flex items-center justify-center bg-gray-50">Loading Admin Portal...</div>;
+        return <div className="min-h-screen flex items-center justify-center bg-gray-50">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>;
     }
 
     if (!admin) {
-        return null; // Will redirect via effect
+        return null;
     }
 
     const navigation = [
@@ -28,32 +30,32 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     ];
 
     return (
-        <div className="min-h-screen bg-gray-50 flex">
+        <div className="min-h-screen bg-gray-50/50 flex">
             {/* Sidebar */}
-            <div className="hidden md:flex w-72 flex-col fixed inset-y-0 bg-slate-900 text-white shadow-2xl">
+            <div className="hidden md:flex w-72 flex-col fixed inset-y-0 bg-white border-r border-gray-100 shadow-sm z-30">
                 <div className="flex-1 flex flex-col pt-8 pb-4 overflow-y-auto">
                     <div className="flex items-center flex-shrink-0 px-6 mb-10">
-                        <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-bold text-2xl mr-3 shadow-lg shadow-indigo-600/20">
+                        <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-primary-foreground font-bold text-2xl mr-3 shadow-lg shadow-primary/20">
                             K
                         </div>
-                        <h1 className="text-xl font-bold tracking-tight">Khidmati <span className="text-indigo-400 font-light">Admin</span></h1>
+                        <h1 className="text-xl font-bold tracking-tight text-foreground">Khidmati <span className="text-primary font-medium">Admin</span></h1>
                     </div>
 
                     <div className="px-4 mb-4">
-                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-2 mb-2">Main Menu</p>
+                        <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest px-4 mb-3">Main Menu</p>
                         <nav className="space-y-1">
                             {navigation.map((item) => {
                                 const isActive = location === item.href;
                                 return (
                                     <Link key={item.name} href={item.href}>
                                         <div
-                                            className={`group flex items-center px-3 py-3 text-sm font-medium rounded-xl cursor-pointer transition-all duration-200 ${isActive
-                                                ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20"
-                                                : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                                            className={`group flex items-center px-4 py-3 text-sm font-medium rounded-xl cursor-pointer transition-all duration-200 ${isActive
+                                                ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
+                                                : "text-muted-foreground hover:bg-gray-50 hover:text-primary"
                                                 }`}
                                         >
                                             <item.icon
-                                                className={`mr-3 flex-shrink-0 h-5 w-5 ${isActive ? "text-white" : "text-slate-500 group-hover:text-white"
+                                                className={`mr-3 flex-shrink-0 h-5 w-5 ${isActive ? "text-primary-foreground" : "text-gray-400 group-hover:text-primary"
                                                     }`}
                                                 aria-hidden="true"
                                             />
@@ -68,30 +70,30 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     <div className="px-4 mt-auto">
                         <nav className="space-y-1">
                             <Link href="/">
-                                <div className="group flex items-center px-3 py-3 text-sm font-medium rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer">
-                                    <Home className="mr-3 h-5 w-5 text-slate-500 group-hover:text-white" />
+                                <div className="group flex items-center px-4 py-3 text-sm font-medium rounded-xl text-muted-foreground hover:bg-gray-50 hover:text-primary transition-colors cursor-pointer">
+                                    <Home className="mr-3 h-5 w-5 text-gray-400 group-hover:text-primary" />
                                     Back to Site
                                 </div>
                             </Link>
                             <div
-                                className="group flex items-center px-3 py-3 text-sm font-medium rounded-xl text-red-400 hover:bg-red-500/10 hover:text-red-400 transition-colors cursor-pointer"
+                                className="group flex items-center px-4 py-3 text-sm font-medium rounded-xl text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
                                 onClick={() => logout()}
                             >
-                                <LogOut className="mr-3 h-5 w-5 text-red-500/70 group-hover:text-red-400" />
+                                <LogOut className="mr-3 h-5 w-5 text-red-400 group-hover:text-red-500" />
                                 Sign Out
                             </div>
                         </nav>
                     </div>
                 </div>
 
-                <div className="flex-shrink-0 flex bg-slate-800/50 p-4 border-t border-white/5">
-                    <div className="flex items-center">
-                        <div className="h-9 w-9 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold border border-white/10 text-indigo-300">
+                <div className="flex-shrink-0 flex bg-gray-50 p-4 border-t border-gray-100 m-4 rounded-2xl">
+                    <div className="flex items-center w-full">
+                        <div className="h-9 w-9 rounded-full bg-white flex items-center justify-center text-xs font-bold border border-gray-200 text-primary shadow-sm">
                             AD
                         </div>
                         <div className="ml-3">
-                            <p className="text-xs font-bold text-white">Administrator</p>
-                            <p className="text-[10px] text-slate-500">Secure Access</p>
+                            <p className="text-xs font-bold text-foreground">Administrator</p>
+                            <p className="text-[10px] text-muted-foreground">Secure Access</p>
                         </div>
                     </div>
                 </div>

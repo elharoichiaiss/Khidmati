@@ -20,44 +20,44 @@ export default function AdminLogin() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-100">
-            <Card className="w-full max-w-md border-slate-800 bg-slate-900 shadow-2xl">
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 text-foreground">
+            <Card className="w-full max-w-md border-gray-200 bg-white shadow-xl">
                 <CardHeader className="text-center space-y-4 pb-8">
-                    <div className="mx-auto bg-slate-800 p-3 rounded-full w-fit border border-slate-700">
-                        <Lock className="w-8 h-8 text-indigo-400" />
+                    <div className="mx-auto bg-primary/10 p-3 rounded-full w-fit border border-primary/20">
+                        <Lock className="w-8 h-8 text-primary" />
                     </div>
                     <div>
-                        <CardTitle className="text-2xl font-bold text-white tracking-tight">Admin Portal</CardTitle>
-                        <CardDescription className="text-slate-400">Restricted Access. Authorized personnel only.</CardDescription>
+                        <CardTitle className="text-2xl font-bold tracking-tight">Admin Portal</CardTitle>
+                        <CardDescription className="text-muted-foreground">Authorized personnel only.</CardDescription>
                     </div>
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="space-y-2">
-                            <label className="text-sm font-medium text-slate-300">Username</label>
+                            <label className="text-sm font-medium text-foreground">Username</label>
                             <Input
                                 type="text"
                                 placeholder="Admin Username"
                                 value={username}
                                 onChange={(e) => setUsername(e.target.value)}
-                                className="bg-slate-950 border-slate-800 text-white placeholder:text-slate-600 focus-visible:ring-indigo-500"
+                                className="bg-white border-gray-200 placeholder:text-muted-foreground focus-visible:ring-primary"
                                 required
                             />
                         </div>
                         <div className="space-y-2">
-                            <label className="text-sm font-medium text-slate-300">Password</label>
+                            <label className="text-sm font-medium text-foreground">Password</label>
                             <Input
                                 type="password"
                                 placeholder="••••••••"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                className="bg-slate-950 border-slate-800 text-white placeholder:text-slate-600 focus-visible:ring-indigo-500"
+                                className="bg-white border-gray-200 placeholder:text-muted-foreground focus-visible:ring-primary"
                                 required
                             />
                         </div>
                         <Button
                             type="submit"
-                            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-6"
+                            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-6 shadow-lg shadow-primary/20 transition-all"
                             disabled={isLoggingIn}
                         >
                             {isLoggingIn ? "Authenticating..." : "Access Dashboard"}
@@ -66,7 +66,7 @@ export default function AdminLogin() {
                 </CardContent>
             </Card>
 
-            <div className="absolute bottom-8 text-center text-xs text-slate-600">
+            <div className="absolute bottom-8 text-center text-xs text-muted-foreground">
                 Khidmati Secure Admin Environment v1.0
             </div>
         </div>
