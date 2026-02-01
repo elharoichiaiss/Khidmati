@@ -122,7 +122,9 @@ export class DatabaseStorage implements IStorage {
     }
 
     if (conditions.length > 0) {
-      query.where(and(...conditions));
+      query.where(and(...conditions, eq(users.isBanned, false)));
+    } else {
+      query.where(eq(users.isBanned, false));
     }
 
     const results = await query;

@@ -45,9 +45,16 @@ export async function registerRoutes(
     // Using passport.authenticate middleware logic inside the route handler for custom response
     const authMiddleware = passport.authenticate("local", (err: any, user: any, info: any) => {
       if (err) return next(err);
+
       if (!user) {
         return res.status(401).json({ message: info?.message || "Authentication failed" });
       }
+
+      // Explicitly check for ban status before logging in
+      if (user.isBanned) {
+        return res.status(403).json({ message: "Your account has been suspended. Contact support." });
+      }
+
       req.login(user, (err) => {
         if (err) return next(err);
         return res.status(200).json(user);
