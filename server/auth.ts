@@ -64,6 +64,10 @@ export function setupAuth(app: Express) {
   passport.deserializeUser(async (id: number, done) => {
     try {
       const user = await storage.getUser(id);
+      if (user && user.isBanned) {
+        // If user is banned, invalidate session
+        return done(null, false);
+      }
       done(null, user);
     } catch (err) {
       done(err);

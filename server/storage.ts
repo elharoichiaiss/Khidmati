@@ -240,7 +240,30 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteUser(id: number): Promise<void> {
-    await db.delete(users).where(eq(users.id, id));
+    await db.transaction(async (tx) => {
+      // 1. Delete Provider Profile
+      await tx.delete(providerProfiles).where(eq(providerProfiles.userId, id));
+
+      // 2. Delete Reviews (Given and Received)
+      await tx.delete(reviews).where(or(
+        eq(reviews.providerId, id),
+        eq(reviews.clientId, id)
+      ));
+
+      // 3. Delete Messages (Sent)
+      await tx.delete(messages).where(eq(messages.senderId, id));
+
+      // 4. Delete Conversations (Participant)
+      // Note: This will delete conversations for the other user too, which is usually expected behavior 
+      // when a user is hard-deleted.
+      await tx.delete(conversations).where(or(
+        eq(conversations.participant1Id, id),
+        eq(conversations.participant2Id, id)
+      ));
+
+      // 5. Finally, Delete User
+      await tx.delete(users).where(eq(users.id, id));
+    });
   }
 
   async toggleUserBan(id: number): Promise<User> {
