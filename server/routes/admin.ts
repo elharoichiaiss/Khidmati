@@ -5,10 +5,11 @@ export const adminRouter = Router();
 
 // Middleware to check if user is admin
 const isAuthenticatedAdmin = (req: any, res: any, next: any) => {
-    if (req.session.isAdmin) {
+    // Explicitly casting req to any to access session, though extending Request type is better practice
+    if (req.session && req.session.isAdmin) {
         next();
     } else {
-        res.status(401).json({ message: "Unauthorized Admin Access" });
+        res.status(403).json({ message: "Forbidden: Admin Access Required" });
     }
 };
 
@@ -96,7 +97,6 @@ adminRouter.delete("/users/:id", isAuthenticatedAdmin, async (req, res) => {
         await storage.deleteUser(Number(req.params.id));
         res.sendStatus(204);
     } catch (error) {
-        console.error("Admin delete error:", error);
         res.status(500).json({ message: "Failed to delete user" });
     }
 });

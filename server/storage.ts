@@ -238,7 +238,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllUsers(): Promise<User[]> {
-    return await db.select().from(users).orderBy(desc(users.createdAt));
+    const usersList = await db.select().from(users).orderBy(desc(users.createdAt));
+    return usersList.map(u => {
+      const { password, ...safeUser } = u;
+      return safeUser as User;
+    });
   }
 
   async deleteUser(id: number): Promise<void> {

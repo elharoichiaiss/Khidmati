@@ -14,7 +14,7 @@ import {
     TableRow
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Ban, Trash2, CheckCircle, Search, ExternalLink } from "lucide-react";
+import { Ban, Trash2, CheckCircle, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Link } from "wouter";
 import { useState } from "react";

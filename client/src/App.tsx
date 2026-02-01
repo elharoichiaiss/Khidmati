@@ -15,6 +15,7 @@ import AdminDashboard from "@/pages/AdminDashboard";
 import AdminUsersPage from "@/pages/admin/Users";
 import AdminLayout from "@/layouts/AdminLayout";
 import AdminLogin from "@/pages/admin/Login";
+import ProtectedAdminRoute from "@/components/ProtectedAdminRoute";
 
 function Router() {
   return (
@@ -32,21 +33,27 @@ function Router() {
       <Route path="/k-admin-portal-secure/login" component={AdminLogin} />
 
       <Route path="/k-admin-portal-secure">
-        <AdminLayout>
-          <AdminDashboard />
-        </AdminLayout>
+        <ProtectedAdminRoute>
+          <AdminLayout>
+            <AdminDashboard />
+          </AdminLayout>
+        </ProtectedAdminRoute>
       </Route>
 
       <Route path="/k-admin-portal-secure/users">
-        <AdminLayout>
-          <AdminUsersPage />
-        </AdminLayout>
+        <ProtectedAdminRoute>
+          <AdminLayout>
+            <AdminUsersPage />
+          </AdminLayout>
+        </ProtectedAdminRoute>
       </Route>
 
       <Route path="/k-admin-portal-secure/settings">
-        <AdminLayout>
-          <div>Settings Page (Coming Soon)</div>
-        </AdminLayout>
+        <ProtectedAdminRoute>
+          <AdminLayout>
+            <div>Settings Page (Coming Soon)</div>
+          </AdminLayout>
+        </ProtectedAdminRoute>
       </Route>
 
       <Route component={NotFound} />
