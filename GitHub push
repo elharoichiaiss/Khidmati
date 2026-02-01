@@ -1,0 +1,3 @@
+git add .
+git commit -m "feat: Update favicon to exact brand color match"
+git push
