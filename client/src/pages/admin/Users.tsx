@@ -49,7 +49,7 @@ export default function AdminUsersPage() {
 
     const banMutation = useMutation({
         mutationFn: async (id: number) => {
-            await apiRequest("PATCH", `/api/admin/users/${id}/ban`);
+            await apiRequest("POST", `/api/admin/users/${id}/ban`);
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });

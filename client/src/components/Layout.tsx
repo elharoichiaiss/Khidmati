@@ -90,14 +90,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                       </Link>
                     </DropdownMenuItem>
 
-                    {user.role === 'admin' && (
-                      <DropdownMenuItem asChild>
-                        <Link href="/admin">
-                          <LayoutDashboard className="w-4 h-4 mr-2" />
-                          لوحة التحكم (Admin)
-                        </Link>
-                      </DropdownMenuItem>
-                    )}
+                    {/* Legacy Admin Link Removed */}
 
                     <DropdownMenuItem onClick={() => logout()} className="text-destructive focus:text-destructive">
                       <LogOut className="w-4 h-4 mr-2" />
@@ -157,11 +150,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <Link href="/profile" onClick={() => setIsMobileMenuOpen(false)} className="py-2">
                   {t("profile")}
                 </Link>
-                {user.role === 'admin' && (
-                  <Link href="/admin" onClick={() => setIsMobileMenuOpen(false)} className="py-2 text-primary font-bold">
-                    لوحة التحكم (Admin)
-                  </Link>
-                )}
+                {/* Legacy Admin Link Removed */}
                 <Button variant="destructive" onClick={() => { logout(); setIsMobileMenuOpen(false); }}>
                   {t("logout")}
                 </Button>
