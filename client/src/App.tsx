@@ -15,7 +15,7 @@ import AdminDashboard from "@/pages/AdminDashboard";
 import AdminUsersPage from "@/pages/admin/Users";
 import AdminLayout from "@/layouts/AdminLayout";
 import AdminLogin from "@/pages/admin/Login";
-import ProtectedAdminRoute from "@/components/ProtectedAdminRoute";
+import ProtectedRoute from "@/components/ProtectedRoute";
 
 function Router() {
   return (
@@ -26,34 +26,38 @@ function Router() {
       <Route path="/register" component={AuthPage} />
       <Route path="/providers/:id" component={ProviderDetail} />
       <Route path="/messages" component={Messages} />
-      <Route path="/profile" component={Profile} />
+      <Route path="/profile">
+        <ProtectedRoute>
+          <Profile />
+        </ProtectedRoute>
+      </Route>
 
       {/* Admin Routes with nested switch for sub-routes */}
       {/* Secure Admin Routes */}
       <Route path="/k-admin-portal-secure/login" component={AdminLogin} />
 
       <Route path="/k-admin-portal-secure">
-        <ProtectedAdminRoute>
+        <ProtectedRoute allowedRoles={['admin']}>
           <AdminLayout>
             <AdminDashboard />
           </AdminLayout>
-        </ProtectedAdminRoute>
+        </ProtectedRoute>
       </Route>
 
       <Route path="/k-admin-portal-secure/users">
-        <ProtectedAdminRoute>
+        <ProtectedRoute allowedRoles={['admin']}>
           <AdminLayout>
             <AdminUsersPage />
           </AdminLayout>
-        </ProtectedAdminRoute>
+        </ProtectedRoute>
       </Route>
 
       <Route path="/k-admin-portal-secure/settings">
-        <ProtectedAdminRoute>
+        <ProtectedRoute allowedRoles={['admin']}>
           <AdminLayout>
             <div>Settings Page (Coming Soon)</div>
           </AdminLayout>
-        </ProtectedAdminRoute>
+        </ProtectedRoute>
       </Route>
 
       <Route component={NotFound} />
