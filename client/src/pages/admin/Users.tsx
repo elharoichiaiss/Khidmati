@@ -14,8 +14,9 @@ import {
     TableRow
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Ban, Trash2, CheckCircle, Search } from "lucide-react";
+import { Ban, Trash2, CheckCircle, Search, ExternalLink } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Link } from "wouter";
 import { useState } from "react";
 
 export default function AdminUsersPage() {
@@ -95,12 +96,12 @@ export default function AdminUsersPage() {
                     <Table>
                         <TableHeader className="bg-gray-50">
                             <TableRow>
-                                <TableHead className="w-[80px]">ID</TableHead>
+                                <TableHead className="w-[60px]">ID</TableHead>
                                 <TableHead>User</TableHead>
-                                <TableHead>Contact</TableHead>
                                 <TableHead>Role</TableHead>
-                                <TableHead>City</TableHead>
+                                <TableHead>Email</TableHead>
                                 <TableHead>Status</TableHead>
+                                <TableHead>Joined Date</TableHead>
                                 <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -120,7 +121,7 @@ export default function AdminUsersPage() {
                             ) : (
                                 filteredUsers?.map((user) => (
                                     <TableRow key={user.id}>
-                                        <TableCell className="font-medium">{user.id}</TableCell>
+                                        <TableCell className="font-medium text-xs text-gray-500">{user.id}</TableCell>
                                         <TableCell>
                                             <div className="flex flex-col">
                                                 <span className="font-medium text-gray-900">{user.fullName}</span>
@@ -128,17 +129,11 @@ export default function AdminUsersPage() {
                                             </div>
                                         </TableCell>
                                         <TableCell>
-                                            <div className="flex flex-col text-sm text-gray-600">
-                                                {user.email && <span>{user.email}</span>}
-                                                {user.phone && <span>{user.phone}</span>}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge variant={user.role === 'admin' ? 'destructive' : user.role === 'provider' ? 'default' : 'secondary'}>
+                                            <Badge variant={user.role === 'admin' ? 'default' : user.role === 'provider' ? 'secondary' : 'outline'}>
                                                 {user.role}
                                             </Badge>
                                         </TableCell>
-                                        <TableCell>{user.city || "-"}</TableCell>
+                                        <TableCell className="text-sm text-gray-600">{user.email || "-"}</TableCell>
                                         <TableCell>
                                             {user.isBanned ? (
                                                 <Badge variant="outline" className="text-red-600 border-red-200 bg-red-50">
@@ -150,9 +145,25 @@ export default function AdminUsersPage() {
                                                 </Badge>
                                             )}
                                         </TableCell>
+                                        <TableCell className="text-sm text-gray-500">
+                                            {new Date(user.createdAt || "").toLocaleDateString()}
+                                        </TableCell>
                                         <TableCell className="text-right">
                                             {user.role !== "admin" && (
                                                 <div className="flex justify-end gap-2">
+                                                    {user.role === "provider" && (
+                                                        <Link href={`/providers/${user.id}`} target="_blank">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                                                title="View Portfolio"
+                                                            >
+                                                                <ExternalLink className="h-4 w-4" />
+                                                            </Button>
+                                                        </Link>
+                                                    )}
+
                                                     <Button
                                                         variant="ghost"
                                                         size="icon"
@@ -162,6 +173,7 @@ export default function AdminUsersPage() {
                                                     >
                                                         {user.isBanned ? <CheckCircle className="h-4 w-4" /> : <Ban className="h-4 w-4" />}
                                                     </Button>
+
                                                     <Button
                                                         variant="ghost"
                                                         size="icon"
@@ -171,6 +183,7 @@ export default function AdminUsersPage() {
                                                                 deleteMutation.mutate(user.id);
                                                             }
                                                         }}
+                                                        title="Delete User"
                                                     >
                                                         <Trash2 className="h-4 w-4" />
                                                     </Button>

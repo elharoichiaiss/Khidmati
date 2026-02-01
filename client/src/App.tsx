@@ -14,6 +14,7 @@ import Profile from "@/pages/Profile";
 import AdminDashboard from "@/pages/AdminDashboard";
 import AdminUsersPage from "@/pages/admin/Users";
 import AdminLayout from "@/layouts/AdminLayout";
+import AdminLogin from "@/pages/admin/Login";
 
 function Router() {
   return (
@@ -27,13 +28,16 @@ function Router() {
       <Route path="/profile" component={Profile} />
 
       {/* Admin Routes with nested switch for sub-routes */}
-      <Route path="/admin/:rest*">
+      {/* Secure Admin Routes */}
+      <Route path="/k-admin-portal-secure/login" component={AdminLogin} />
+
+      <Route path="/k-admin-portal-secure/:rest*">
         {(params) => (
           <AdminLayout>
             <Switch>
-              <Route path="/admin" component={AdminDashboard} />
-              <Route path="/admin/users" component={AdminUsersPage} />
-              <Route path="/admin/settings" component={() => <div>Settings Page (Coming Soon)</div>} />
+              <Route path="/k-admin-portal-secure" component={AdminDashboard} />
+              <Route path="/k-admin-portal-secure/users" component={AdminUsersPage} />
+              <Route path="/k-admin-portal-secure/settings" component={() => <div>Settings Page (Coming Soon)</div>} />
             </Switch>
           </AdminLayout>
         )}

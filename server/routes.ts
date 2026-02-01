@@ -5,6 +5,7 @@ import { setupAuth } from "./auth";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
+import { adminRouter } from "./routes/admin";
 
 
 export async function registerRoutes(
@@ -193,27 +194,8 @@ export async function registerRoutes(
     }
   });
 
-  // Admin Routes
-  const requireAdmin = (req: any, res: any, next: any) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    if (req.user.role !== "admin") return res.sendStatus(403);
-    next();
-  };
-
-  app.get("/api/admin/users", requireAdmin, async (req, res) => {
-    const users = await storage.getAllUsers();
-    res.json(users);
-  });
-
-  app.delete("/api/admin/users/:id", requireAdmin, async (req, res) => {
-    await storage.deleteUser(Number(req.params.id));
-    res.sendStatus(204);
-  });
-
-  app.patch("/api/admin/users/:id/ban", requireAdmin, async (req, res) => {
-    const user = await storage.toggleUserBan(Number(req.params.id));
-    res.json(user);
-  });
+  // NEW Admin Routes (Dedicated)
+  app.use("/api/admin", adminRouter);
 
   // Seed Data
   await seedDatabase();
@@ -221,8 +203,11 @@ export async function registerRoutes(
   return httpServer;
 }
 
+// Keeping seedDatabase as is for now, but note that the new Admin Dashboard
+// uses a separate auth mechanism (Username/Password hardcoded or env)
+// rather than the "users" table login.
 async function seedDatabase() {
-  // Ensure Admin exists
+  // Ensure "admin" user exists in DB too (optional, but good for consistency)
   const existingAdmin = await storage.getUserByUsername("admin");
   if (!existingAdmin) {
     console.log("Seeding admin user...");

@@ -1,15 +1,30 @@
 import { Link, useLocation } from "wouter";
 import { LayoutDashboard, Users, Settings, LogOut, Home } from "lucide-react";
-import { useAuth } from "@/hooks/use-auth";
+import { useAdminAuth } from "@/hooks/use-admin-auth";
+import { useEffect } from "react";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-    const [location] = useLocation();
-    const { logout } = useAuth();
+    const [location, setLocation] = useLocation();
+    const { admin, isLoading, logout } = useAdminAuth();
+
+    useEffect(() => {
+        if (!isLoading && !admin && location !== "/k-admin-portal-secure/login") {
+            setLocation("/k-admin-portal-secure/login");
+        }
+    }, [admin, isLoading, location, setLocation]);
+
+    if (isLoading) {
+        return <div className="min-h-screen flex items-center justify-center bg-gray-50">Loading Admin Portal...</div>;
+    }
+
+    if (!admin) {
+        return null; // Will redirect via effect
+    }
 
     const navigation = [
-        { name: "Overview", href: "/admin", icon: LayoutDashboard },
-        { name: "Users Management", href: "/admin/users", icon: Users },
-        { name: "Settings", href: "/admin/settings", icon: Settings },
+        { name: "Overview", href: "/k-admin-portal-secure", icon: LayoutDashboard },
+        { name: "Users Management", href: "/k-admin-portal-secure/users", icon: Users },
+        { name: "Settings", href: "/k-admin-portal-secure/settings", icon: Settings },
     ];
 
     return (
@@ -18,10 +33,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <div className="hidden md:flex w-72 flex-col fixed inset-y-0 bg-slate-900 text-white shadow-2xl">
                 <div className="flex-1 flex flex-col pt-8 pb-4 overflow-y-auto">
                     <div className="flex items-center flex-shrink-0 px-6 mb-10">
-                        <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white font-bold text-2xl mr-3">
+                        <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-bold text-2xl mr-3 shadow-lg shadow-indigo-600/20">
                             K
                         </div>
-                        <h1 className="text-xl font-bold tracking-tight">Khidmati <span className="text-primary font-light">Admin</span></h1>
+                        <h1 className="text-xl font-bold tracking-tight">Khidmati <span className="text-indigo-400 font-light">Admin</span></h1>
                     </div>
 
                     <div className="px-4 mb-4">
@@ -33,8 +48,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                     <Link key={item.name} href={item.href}>
                                         <div
                                             className={`group flex items-center px-3 py-3 text-sm font-medium rounded-xl cursor-pointer transition-all duration-200 ${isActive
-                                                    ? "bg-primary text-white shadow-lg shadow-primary/20"
-                                                    : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                                                ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20"
+                                                : "text-slate-400 hover:bg-slate-800 hover:text-white"
                                                 }`}
                                         >
                                             <item.icon
@@ -71,12 +86,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
                 <div className="flex-shrink-0 flex bg-slate-800/50 p-4 border-t border-white/5">
                     <div className="flex items-center">
-                        <div className="h-9 w-9 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold border border-white/10">
+                        <div className="h-9 w-9 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold border border-white/10 text-indigo-300">
                             AD
                         </div>
                         <div className="ml-3">
                             <p className="text-xs font-bold text-white">Administrator</p>
-                            <p className="text-[10px] text-slate-500">Full Access</p>
+                            <p className="text-[10px] text-slate-500">Secure Access</p>
                         </div>
                     </div>
                 </div>
