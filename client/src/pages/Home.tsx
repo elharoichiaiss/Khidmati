@@ -29,9 +29,9 @@ export default function Home() {
         <div className="absolute inset-0 z-0">
           {/* home repair abstract background */}
           <img 
-            src="https://pixabay.com/get/g1a04a09d4283e39142ec07af0718d92000e324bed73ca509c81ba20ef7ebb9a3128a840c277508d90552d15e4221d0157a4aa88e271dcfd7faba299d2aed27ed_1280.jpg" 
+            src="/hero-bg.png" 
             alt="Background" 
-            className="w-full h-full object-cover opacity-40"
+            className="w-full h-full object-cover opacity-60"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/80 to-slate-900/60" />
         </div>
