@@ -149,6 +149,32 @@ export default function AdminUsersPage() {
                                             {new Date(user.createdAt || "").toLocaleDateString()}
                                         </TableCell>
                                         <TableCell className="text-right">
+                                            <div className="flex justify-end gap-2">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className={user.isBanned ? "text-green-600 hover:text-green-700 hover:bg-green-50" : "text-amber-600 hover:text-amber-700 hover:bg-amber-50"}
+                                                    onClick={() => banMutation.mutate(user.id)}
+                                                    title={user.isBanned ? "Unban User" : "Ban User"}
+                                                >
+                                                    {user.isBanned ? <CheckCircle className="h-4 w-4" /> : <Ban className="h-4 w-4" />}
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                                                    onClick={() => {
+                                                        if (confirm("Are you sure you want to permanently delete this user? This action cannot be undone.")) {
+                                                            deleteMutation.mutate(user.id);
+                                                        }
+                                                    }}
+                                                    title="Delete User"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="text-right">
                                             {user.role !== "admin" && (
                                                 <div className="flex justify-end gap-2">
                                                     {user.role === "provider" && (
