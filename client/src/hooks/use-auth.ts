@@ -33,7 +33,13 @@ export function useAuth() {
     },
     onSuccess: (data) => {
       queryClient.setQueryData([api.auth.me.path], data);
-      setLocation("/");
+      if (data.role === "admin") {
+        setLocation("/k-admin-portal-secure");
+      } else if (data.role === "provider") {
+        setLocation("/profile");
+      } else {
+        setLocation("/");
+      }
     },
   });
 
