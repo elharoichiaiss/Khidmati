@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { insertUserSchema, insertProviderProfileSchema } from "@shared/routes";
+import { MOROCCAN_CITIES } from "@shared/constants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
@@ -69,9 +70,9 @@ export default function AuthPage() {
   const onRegister = async (data: any) => {
     try {
       const { serviceCategory, city, bio, ...userData } = data;
-      
+
       const payload: any = { ...userData };
-      
+
       if (userData.role === "provider") {
         payload.providerProfile = {
           serviceCategory,
@@ -104,7 +105,7 @@ export default function AuthPage() {
                 <TabsTrigger value="login">Login</TabsTrigger>
                 <TabsTrigger value="register">Register</TabsTrigger>
               </TabsList>
-              
+
               <TabsContent value="login">
                 <Form {...loginForm}>
                   <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-4">
@@ -262,9 +263,9 @@ export default function AuthPage() {
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                  <SelectItem value="Casablanca">Casablanca</SelectItem>
-                                  <SelectItem value="Rabat">Rabat</SelectItem>
-                                  <SelectItem value="Marrakech">Marrakech</SelectItem>
+                                  {MOROCCAN_CITIES.map((c) => (
+                                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                                  ))}
                                 </SelectContent>
                               </Select>
                               <FormMessage />

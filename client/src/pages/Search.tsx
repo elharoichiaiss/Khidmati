@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Search as SearchIcon, Filter } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
+import { MOROCCAN_CITIES } from "@shared/constants";
 
 export default function SearchPage() {
   const [location] = useLocation();
@@ -18,10 +19,10 @@ export default function SearchPage() {
   const [category, setCategory] = useState(initialCategory);
   const [city, setCity] = useState("");
 
-  const { data: providers, isLoading } = useProviders({ 
-    search: query || undefined, 
-    category: (category === "all" || !category) ? undefined : category, 
-    city: (city === "all" || !city) ? undefined : city 
+  const { data: providers, isLoading } = useProviders({
+    search: query || undefined,
+    category: (category === "all" || !category) ? undefined : category,
+    city: (city === "all" || !city) ? undefined : city
   });
 
   return (
@@ -29,18 +30,18 @@ export default function SearchPage() {
       <div className="bg-secondary/30 border-b">
         <div className="container mx-auto px-4 py-8">
           <h1 className="text-3xl font-bold font-display mb-6">Find Services</h1>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-background rounded-xl shadow-sm border">
             <div className="relative md:col-span-2">
               <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
-              <Input 
-                placeholder="Search by name or keyword..." 
+              <Input
+                placeholder="Search by name or keyword..."
                 className="pl-10 border-0 bg-secondary/50 focus-visible:ring-1"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
             </div>
-            
+
             <Select value={category} onValueChange={setCategory}>
               <SelectTrigger className="border-0 bg-secondary/50">
                 <SelectValue placeholder="Category" />
@@ -60,10 +61,9 @@ export default function SearchPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Cities</SelectItem>
-                <SelectItem value="Casablanca">Casablanca</SelectItem>
-                <SelectItem value="Rabat">Rabat</SelectItem>
-                <SelectItem value="Marrakech">Marrakech</SelectItem>
-                <SelectItem value="Tangier">Tangier</SelectItem>
+                {MOROCCAN_CITIES.map((c) => (
+                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
