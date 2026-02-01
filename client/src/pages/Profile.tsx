@@ -11,7 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useForm } from "react-hook-form";
 import { useEffect } from "react";
 import { Loader2, UploadCloud, X } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
+import { LocationPicker } from "@/components/LocationPicker";
 
 export default function Profile() {
   const { user, isLoading } = useAuth();
@@ -23,6 +23,8 @@ export default function Profile() {
       yearsOfExperience: 0,
       profileImage: "",
       portfolioImages: [] as string[],
+      latitude: null as number | null,
+      longitude: null as number | null,
     }
   });
 
@@ -34,6 +36,8 @@ export default function Profile() {
         yearsOfExperience: user.providerProfile.yearsOfExperience || 0,
         profileImage: user.providerProfile.profileImage || "",
         portfolioImages: user.providerProfile.portfolioImages || [],
+        latitude: user.providerProfile.latitude,
+        longitude: user.providerProfile.longitude,
       });
     }
   }, [user]);
@@ -97,7 +101,7 @@ export default function Profile() {
                 <AvatarImage src={currentProfileImage ? `/objects/${currentProfileImage}` : undefined} />
                 <AvatarFallback className="text-2xl">{user.fullName[0]}</AvatarFallback>
               </Avatar>
-              
+
               <ObjectUploader
                 onGetUploadParameters={async (file) => await getUploadParams(file.data as File)}
                 onComplete={(result) => {
@@ -107,13 +111,13 @@ export default function Profile() {
                     // In this mock, we assume the uploadUrl contained the ID or we'd need the response body
                     // For the sake of this MVP, let's assume the hook returns the object path in metadata or similar
                     // Re-implementing correctly:
-                    const uploadUrl = success.uploadURL; 
+                    const uploadUrl = success.uploadURL;
                     // This assumes uploadUrl structure. Better: store the ID we generated in getUploadParams.
                     // Simplified: Just refetch profile or implement robust ID tracking.
                     // For now, let's assume we can parse it or reload.
                     // ACTUALLY: The ObjectUploader component doesn't easily give back the custom metadata.
                     // Let's use the 'upload-url' from the server response which contains the ID.
-                    
+
                     // Hack for MVP: The presigned URL generation endpoint returns { objectPath }
                     // We need to capture that. 
                     // Let's rely on the user to reload for now or implement a better uploader hook.
@@ -125,7 +129,7 @@ export default function Profile() {
               >
                 Change Photo
               </ObjectUploader>
-              
+
               {/* Fallback simple uploader since Uppy integration needs careful state management */}
               <div className="text-xs text-muted-foreground">
                 (Uploads handled via modal)
@@ -141,20 +145,38 @@ export default function Profile() {
             <CardContent className="space-y-4">
               <div className="grid gap-2">
                 <Label>Bio</Label>
-                <Textarea 
-                  {...form.register("bio")} 
-                  placeholder="Tell clients about your experience..." 
+                <Textarea
+                  {...form.register("bio")}
+                  placeholder="Tell clients about your experience..."
                   className="h-32"
                 />
               </div>
-              
+
               <div className="grid gap-2">
                 <Label>Years of Experience</Label>
-                <Input 
-                  type="number" 
-                  {...form.register("yearsOfExperience", { valueAsNumber: true })} 
+                <Input
+                  type="number"
+                  {...form.register("yearsOfExperience", { valueAsNumber: true })}
                 />
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Location Section */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Location</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">Click on the map to pin your exact location. This helps clients find you.</p>
+              <LocationPicker
+                initialLat={form.watch("latitude") || undefined}
+                initialLng={form.watch("longitude") || undefined}
+                onLocationSelect={(lat, lng) => {
+                  form.setValue("latitude", lat, { shouldDirty: true });
+                  form.setValue("longitude", lng, { shouldDirty: true });
+                }}
+              />
             </CardContent>
           </Card>
 
@@ -167,12 +189,12 @@ export default function Profile() {
               <div className="grid grid-cols-3 gap-4 mb-4">
                 {currentPortfolio?.map((img, i) => (
                   <div key={i} className="relative group">
-                    <img 
-                      src={`/objects/${img}`} 
-                      className="w-full h-32 object-cover rounded-lg border" 
+                    <img
+                      src={`/objects/${img}`}
+                      className="w-full h-32 object-cover rounded-lg border"
                       alt="Portfolio"
                     />
-                    <button 
+                    <button
                       type="button"
                       onClick={() => {
                         const newPortfolio = [...currentPortfolio];
@@ -185,7 +207,7 @@ export default function Profile() {
                     </button>
                   </div>
                 ))}
-                
+
                 <ObjectUploader
                   onGetUploadParameters={async (file) => await getUploadParams(file.data as File)}
                   onComplete={(result) => {

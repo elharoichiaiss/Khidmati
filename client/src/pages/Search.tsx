@@ -9,6 +9,8 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { MOROCCAN_CITIES } from "@shared/constants";
 
+import { MapSearch } from "@/components/MapSearch";
+
 export default function SearchPage() {
   const [location] = useLocation();
   const searchParams = new URLSearchParams(window.location.search);
@@ -18,6 +20,7 @@ export default function SearchPage() {
   const [query, setQuery] = useState(initialQuery);
   const [category, setCategory] = useState(initialCategory);
   const [city, setCity] = useState("");
+  const [view, setView] = useState<"list" | "map">("list");
 
   const { data: providers, isLoading } = useProviders({
     search: query || undefined,
@@ -62,24 +65,49 @@ export default function SearchPage() {
               <SelectContent>
                 <SelectItem value="all">All Cities</SelectItem>
                 {MOROCCAN_CITIES.map((c) => (
-                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                  <SelectItem key={c} value={c}>
+                    {c}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+
+            <div className="flex bg-secondary/50 rounded-md p-1">
+              <button
+                onClick={() => setView("list")}
+                className={`flex-1 flex items-center justify-center p-1 rounded-sm text-sm font-medium transition-all ${view === "list" ? "bg-white shadow" : "text-muted-foreground hover:bg-white/50"}`}
+              >
+                List
+              </button>
+              <button
+                onClick={() => setView("map")}
+                className={`flex-1 flex items-center justify-center p-1 rounded-sm text-sm font-medium transition-all ${view === "map" ? "bg-white shadow" : "text-muted-foreground hover:bg-white/50"}`}
+              >
+                Map
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
       <div className="container mx-auto px-4 py-12">
         {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={i} className="space-y-4">
-                <Skeleton className="h-64 w-full rounded-2xl" />
-                <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-4 w-1/2" />
-              </div>
-            ))}
+          view === "map" ? (
+            <Skeleton className="h-[600px] w-full rounded-xl" />
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div key={i} className="space-y-4">
+                  <Skeleton className="h-64 w-full rounded-2xl" />
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-4 w-1/2" />
+                </div>
+              ))}
+            </div>
+          )
+        ) : view === "map" ? (
+          <div className="h-[600px] w-full">
+            <MapSearch providers={providers || []} />
           </div>
         ) : providers?.length === 0 ? (
           <div className="text-center py-20">

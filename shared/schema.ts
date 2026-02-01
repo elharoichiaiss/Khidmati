@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb, real } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -28,6 +28,8 @@ export const providerProfiles = pgTable("provider_profiles", {
   citiesServed: text("cities_served").array(), // PG array of strings
   profileImage: text("profile_image"), // object storage path
   portfolioImages: text("portfolio_images").array(), // PG array of object paths
+  latitude: real("latitude"),
+  longitude: real("longitude"),
   isAvailable: boolean("is_available").default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });
