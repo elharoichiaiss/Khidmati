@@ -208,20 +208,12 @@ export async function registerRoutes(
 // rather than the "users" table login.
 async function seedDatabase() {
   // Ensure "admin" user exists in DB too (optional, but good for consistency)
+  /* LEGACY ADMIN REMOVED per user request
   const existingAdmin = await storage.getUserByUsername("admin");
   if (!existingAdmin) {
-    console.log("Seeding admin user...");
-    await storage.createUser({
-      username: "admin",
-      password: "admin123",
-      fullName: "Admin User",
-      role: "admin",
-      city: "Casablanca",
-      email: "admin@khidmati.com",
-      phone: "0000000000",
-      language: "ar"
-    });
+    ...
   }
+  */
 
   // Seed other data if provider1 doesn't exist
   const existingUser = await storage.getUserByUsername("provider1");
