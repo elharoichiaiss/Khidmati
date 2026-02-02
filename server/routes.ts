@@ -6,6 +6,9 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import { adminRouter } from "./routes/admin";
+import { upload } from "./multer";
+import express from "express";
+import path from "path";
 
 
 export async function registerRoutes(
@@ -15,10 +18,53 @@ export async function registerRoutes(
   // Setup Authentication
   setupAuth(app);
 
+  // Serve uploaded files
+  app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+
   // Auth Routes
-  app.post(api.auth.register.path, async (req, res, next) => {
+  app.post(api.auth.register.path, upload.single('profileImage'), async (req, res, next) => {
     try {
-      const input = api.auth.register.input.parse(req.body);
+      // If multipart, data is in req.body and parsed as strings. 
+      // We might need to handle parsing if it comes as JSON string or individual fields.
+      // For simplicity in this wizard, we'll assume the client sends fields compatible with the schema.
+
+      const bodyData = { ...req.body };
+
+      // Add image path if uploaded
+      if (req.file) {
+        bodyData.profileImage = `/uploads/${req.file.filename}`;
+      }
+
+      // Manual data structuring and type coercion for FormData
+      const structuredData: any = {
+        username: bodyData.username,
+        password: bodyData.password,
+        fullName: bodyData.fullName,
+        email: bodyData.email,
+        phone: bodyData.phone,
+        city: bodyData.city,
+        role: bodyData.role,
+        language: bodyData.language || 'ar',
+        profileImage: bodyData.profileImage
+      };
+
+      // Handle Provider Profile nesting and coercion
+      if (bodyData.role === 'provider') {
+        structuredData.providerProfile = {
+          serviceCategory: bodyData.serviceCategory,
+          bio: bodyData.bio || undefined,
+          // Ensure citiesServed is array
+          citiesServed: bodyData.city ? [bodyData.city] : [],
+          yearsOfExperience: bodyData.yearsOfExperience ? Number(bodyData.yearsOfExperience) : 0,
+          // Coerce lat/lng to numbers
+          latitude: bodyData.latitude ? parseFloat(bodyData.latitude) : null,
+          longitude: bodyData.longitude ? parseFloat(bodyData.longitude) : null,
+          isAvailable: true
+        };
+      }
+
+      const input = api.auth.register.input.parse(structuredData);
+
       const existingUser = await storage.getUserByUsername(input.username);
       if (existingUser) {
         return res.status(400).json({ message: "Username already exists" });

@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useLocation } from "wouter";
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
+import { RegisterWizard } from "@/components/auth/RegisterWizard";
 
 // Combined schema for registration
 const registerSchema = insertUserSchema.extend({
@@ -198,143 +199,7 @@ export default function AuthPage() {
               </TabsContent>
 
               <TabsContent value="register">
-                <Form {...registerForm}>
-                  <form onSubmit={registerForm.handleSubmit(onRegister)} className="space-y-4">
-                    <FormField
-                      control={registerForm.control}
-                      name="fullName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Full Name</FormLabel>
-                          <FormControl>
-                            <Input placeholder="John Doe" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={registerForm.control}
-                      name="username"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Username</FormLabel>
-                          <FormControl>
-                            <Input placeholder="johndoe123" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={registerForm.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Email</FormLabel>
-                          <FormControl>
-                            <Input type="email" placeholder="john@example.com" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={registerForm.control}
-                      name="password"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Password</FormLabel>
-                          <FormControl>
-                            <Input type="password" placeholder="••••••••" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={registerForm.control}
-                      name="role"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>I want to...</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select a role" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="client">Find Services</SelectItem>
-                              <SelectItem value="provider">Offer Services</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    {selectedRole === "provider" && (
-                      <div className="space-y-4 p-4 border rounded-lg bg-secondary/20 animate-in">
-                        <FormField
-                          control={registerForm.control}
-                          name="serviceCategory"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Service Category</FormLabel>
-                              <Select onValueChange={field.onChange} value={field.value}>
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select category" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  <SelectItem value="Plumbing">Plumbing</SelectItem>
-                                  <SelectItem value="Electrician">Electrician</SelectItem>
-                                  <SelectItem value="Cleaning">Cleaning</SelectItem>
-                                  <SelectItem value="Beauty">Beauty</SelectItem>
-                                  <SelectItem value="Moving">Moving</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={registerForm.control}
-                          name="city"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>City</FormLabel>
-                              <Select onValueChange={field.onChange} value={field.value}>
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select city" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  {MOROCCAN_CITIES.map((c) => (
-                                    <SelectItem key={c} value={c}>{c}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                    )}
-
-                    {registerForm.formState.errors.root && (
-                      <div className="text-sm text-destructive font-medium">
-                        {registerForm.formState.errors.root.message}
-                      </div>
-                    )}
-                    <Button type="submit" className="w-full" disabled={isRegistering}>
-                      {isRegistering ? <Loader2 className="w-4 h-4 animate-spin" /> : "Create Account"}
-                    </Button>
-                  </form>
-                </Form>
+                <RegisterWizard onSuccess={() => setActiveTab("login")} />
               </TabsContent>
             </Tabs>
           </CardContent>

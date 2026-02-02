@@ -14,6 +14,7 @@ export const users = pgTable("users", {
   email: text("email"),
   phone: text("phone"),
   city: text("city"),
+  profileImage: text("profile_image"),
   language: text("language", { enum: ["ar", "fr", "en"] }).default("ar"),
   isBanned: boolean("is_banned").default(false),
   createdAt: timestamp("created_at").defaultNow(),
