@@ -56,9 +56,9 @@ export async function registerRoutes(
           // Ensure citiesServed is array
           citiesServed: bodyData.city ? [bodyData.city] : [],
           yearsOfExperience: bodyData.yearsOfExperience ? Number(bodyData.yearsOfExperience) : 0,
-          // Coerce lat/lng to numbers
-          latitude: bodyData.latitude ? parseFloat(bodyData.latitude) : null,
-          longitude: bodyData.longitude ? parseFloat(bodyData.longitude) : null,
+          // Coerce lat/lng to numbers safely
+          latitude: (bodyData.latitude && !isNaN(parseFloat(bodyData.latitude))) ? parseFloat(bodyData.latitude) : null,
+          longitude: (bodyData.longitude && !isNaN(parseFloat(bodyData.longitude))) ? parseFloat(bodyData.longitude) : null,
           isAvailable: true
         };
       }

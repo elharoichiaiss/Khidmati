@@ -169,8 +169,9 @@ export function RegisterWizard({ onSuccess }: { onSuccess: () => void }) {
             // Construct FormData
             const formData = new FormData();
             Object.keys(data).forEach(key => {
-                if (key !== 'confirmPassword') {
-                    formData.append(key, data[key]);
+                const value = data[key];
+                if (key !== 'confirmPassword' && value !== undefined && value !== null && value !== "") {
+                    formData.append(key, value);
                 }
             });
 
