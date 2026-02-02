@@ -1,13 +1,17 @@
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
+import { useAdminAuth } from "@/hooks/use-admin-auth";
 import { LayoutDashboard } from "lucide-react";
 import { Link } from "wouter";
 
 export function AdminReturnButton() {
     const { user } = useAuth();
+    const { admin } = useAdminAuth();
 
-    // Only show for admins
-    if (user?.role !== "admin") return null;
+    // Show if EITHER client-auth says admin OR admin-auth says admin
+    const isAdmin = (user?.role === "admin") || (!!admin);
+
+    if (!isAdmin) return null;
 
     return (
         <div className="fixed bottom-6 right-6 z-50 animate-in fade-in slide-in-from-bottom-4 duration-700">
