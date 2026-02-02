@@ -29,6 +29,7 @@ export async function registerRoutes(
       // For simplicity in this wizard, we'll assume the client sends fields compatible with the schema.
 
       const bodyData = { ...req.body };
+      console.log("Registration keys received:", Object.keys(bodyData));
 
       // Add image path if uploaded
       if (req.file) {
