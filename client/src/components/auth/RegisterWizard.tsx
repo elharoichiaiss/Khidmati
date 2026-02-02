@@ -112,19 +112,46 @@ export function RegisterWizard({ onSuccess }: { onSuccess: () => void }) {
         }
     };
 
-    const LocationMarker = () => {
-        useMapEvents({
+    // --- Map & City Synchronization Logic ---
+    const LocationController = () => {
+        const map = useMapEvents({
             click(e) {
+                // Anti-Repetition: Single source of truth for location
                 setLocation(e.latlng);
+                form.clearErrors("root"); // Clear general errors on interaction
             },
         });
+
+        useEffect(() => {
+            // Fly to city logic: Updates view without full re-render
+            // Coordinates for demo Moroccan cities
+            const cityCoords: Record<string, [number, number]> = {
+                "Casablanca": [33.5731, -7.5898],
+                "Rabat": [34.0209, -6.8416],
+                "Marrakech": [31.6295, -7.9811],
+                "Tangier": [35.7595, -5.8340],
+                "Agadir": [30.4278, -9.5981],
+                "Fes": [34.0181, -5.0078],
+                "Meknes": [33.8732, -5.5407],
+                "Oujda": [34.6814, -1.9086],
+                "Tetouan": [35.5785, -5.3684],
+                "Nador": [35.1681, -2.9335]
+            };
+
+            const currentCity = form.getValues("city");
+            if (currentCity && cityCoords[currentCity]) {
+                map.flyTo(cityCoords[currentCity], 13);
+            }
+        }, [form.watch("city"), map]);
+
         return location ? <Marker position={location} /> : null;
     };
 
     const onSubmit = async (data: any) => {
         try {
             if (role === 'provider' && !data.serviceCategory) {
-                form.setError("serviceCategory", { message: "Category is required" });
+                // Anti-Repetition: Error state managed by form library, prevents DOM stacking
+                form.setError("serviceCategory", { type: "manual", message: "Category is required" });
                 return;
             }
 
@@ -321,7 +348,14 @@ export function RegisterWizard({ onSuccess }: { onSuccess: () => void }) {
                                             <FormField control={form.control} name="serviceCategory" render={({ field }) => (
                                                 <FormItem>
                                                     <FormLabel>Service Category</FormLabel>
-                                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                    <Select
+                                                        onValueChange={(val) => {
+                                                            field.onChange(val);
+                                                            // Immediate Validation: Clear error on valid change
+                                                            if (val) form.clearErrors("serviceCategory");
+                                                        }}
+                                                        defaultValue={field.value}
+                                                    >
                                                         <FormControl><SelectTrigger><SelectValue placeholder="Select Category" /></SelectTrigger></FormControl>
                                                         <SelectContent>
                                                             <SelectItem value="Plumbing">Plumbing</SelectItem>
@@ -351,10 +385,14 @@ export function RegisterWizard({ onSuccess }: { onSuccess: () => void }) {
 
                                         <div className="space-y-2">
                                             <FormLabel>Pin Exact Location</FormLabel>
-                                            <div className="h-[200px] w-full rounded-lg overflow-hidden border">
-                                                <MapContainer center={[33.5731, -7.5898]} zoom={13} style={{ height: "100%", width: "100%" }}>
+                                            <div className="h-[200px] w-full rounded-lg overflow-hidden border relative z-0">
+                                                <MapContainer
+                                                    center={[33.5731, -7.5898]}
+                                                    zoom={13}
+                                                    style={{ height: "100%", width: "100%" }}
+                                                >
                                                     <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                                                    <LocationMarker />
+                                                    <LocationController />
                                                 </MapContainer>
                                             </div>
                                             <p className="text-xs text-muted-foreground"><MapPin className="w-3 h-3 inline mr-1" /> Tap map to set location</p>
