@@ -1,3 +1,4 @@
 git add .
-git commit -m "feat: Update favicon to exact brand color match"
+git commit -m
 git push
+npm run db:push
