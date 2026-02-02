@@ -29,15 +29,6 @@ export default defineConfig({
             type: "image/png",
           },
         ],
-        shortcuts: [
-          {
-            name: "Admin Portal",
-            short_name: "Admin",
-            description: "Open the Dashboard directly",
-            url: "/k-admin-portal-secure",
-            icons: [{ src: "/icon-192.png", sizes: "192x192" }],
-          },
-        ],
       },
     }),
     ...(process.env.NODE_ENV !== "production" &&

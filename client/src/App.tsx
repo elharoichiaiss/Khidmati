@@ -24,9 +24,10 @@ function Router() {
 
   useEffect(() => {
     const mode = localStorage.getItem("app_mode");
+    const isBrowsing = sessionStorage.getItem("admin_browsing_mode");
 
-    // Smart Redirect: If Admin is saved and we are at root, go to Admin Portal
-    if (mode === "admin" && location === "/") {
+    // Smart Redirect: If Admin is saved, we are at root, AND NOT strictly browsing -> go to Admin Portal
+    if (mode === "admin" && location === "/" && !isBrowsing) {
       setLocation("/k-admin-portal-secure");
     }
   }, [location, setLocation]);

@@ -73,10 +73,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     <InstallAppButton className="w-full justify-start" variant="outline" />
                 </div>
                 <nav className="space-y-1">
-                    <Link href="/">
+                    <Link href="/" onClick={() => sessionStorage.setItem('admin_browsing_mode', 'true')}>
                         <div className="group flex items-center px-4 py-3 text-sm font-medium rounded-xl text-muted-foreground hover:bg-gray-50 hover:text-primary transition-colors cursor-pointer">
                             <Home className="mr-3 h-5 w-5 text-gray-400 group-hover:text-primary" />
-                            Back to Site
+                            View Website
                         </div>
                     </Link>
                     <div

@@ -59,8 +59,34 @@ export default function AuthPage() {
     },
   });
 
+  // Secret Admin Login Logic
+  const [clickCount, setClickCount] = useState(0);
+  const [showAdminLogin, setShowAdminLogin] = useState(false);
+  const [adminCode, setAdminCode] = useState("");
+
+  const handleSecretClick = () => {
+    setClickCount(prev => {
+      const newCount = prev + 1;
+      if (newCount === 5) {
+        setShowAdminLogin(true);
+        // Reset after success
+        return 0;
+      }
+      return newCount;
+    });
+
+    // Reset if too slow (3 seconds)
+    setTimeout(() => setClickCount(0), 3000);
+  };
+  // End Secret Logic
+
   const onLogin = async (data: any) => {
     try {
+      if (showAdminLogin && adminCode === "admin123") { // Simple safeguard, real security is on server
+        await login(data);
+        setLocation("/k-admin-portal-secure");
+        return;
+      }
       await login(data);
     } catch (e: any) {
       loginForm.setError("root", { message: e.message });
@@ -96,7 +122,9 @@ export default function AuthPage() {
       <div className="min-h-[80vh] flex items-center justify-center py-12 px-4 bg-secondary/30">
         <Card className="w-full max-w-md shadow-2xl border-white/20">
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl font-display font-bold">Welcome to Khidmati</CardTitle>
+            <div onClick={handleSecretClick} className="cursor-pointer select-none active:scale-95 transition-transform inline-block">
+              <CardTitle className="text-2xl font-display font-bold">Welcome to Khidmati</CardTitle>
+            </div>
             <CardDescription>Sign in or create an account to get started.</CardDescription>
           </CardHeader>
           <CardContent>
@@ -140,7 +168,29 @@ export default function AuthPage() {
                         {loginForm.formState.errors.root.message}
                       </div>
                     )}
-                    <Button type="submit" className="w-full" disabled={isLoggingIn}>
+
+                    {showAdminLogin && (
+                      <FormField
+                        control={loginForm.control}
+                        name="adminCode" // Fake field name, we handle manually
+                        render={() => (
+                          <FormItem className="animate-in fade-in slide-in-from-top-2">
+                            <FormLabel className="text-red-500 font-bold">Admin Access Code</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="password"
+                                placeholder="Enter secret code"
+                                value={adminCode}
+                                onChange={(e) => setAdminCode(e.target.value)}
+                                className="border-red-200 focus-visible:ring-red-500"
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    )}
+
+                    <Button type="submit" className={`w-full ${showAdminLogin ? "bg-red-600 hover:bg-red-700" : ""}`} disabled={isLoggingIn}>
                       {isLoggingIn ? <Loader2 className="w-4 h-4 animate-spin" /> : "Sign In"}
                     </Button>
                   </form>
@@ -293,6 +343,6 @@ export default function AuthPage() {
           </CardFooter>
         </Card>
       </div>
-    </Layout>
+    </Layout >
   );
 }
