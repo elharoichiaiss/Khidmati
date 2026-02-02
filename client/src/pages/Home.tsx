@@ -1,9 +1,9 @@
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, MapPin, ArrowRight, ShieldCheck, Zap, Users } from "lucide-react";
+import { Search, MapPin, ArrowRight, ShieldCheck, Zap, Users, Download } from "lucide-react";
 import { Link, useLocation } from "wouter";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useLanguage } from "@/hooks/use-language";
 import { useProviders } from "@/hooks/use-providers";
@@ -13,6 +13,25 @@ import { Skeleton } from "@/components/ui/skeleton";
 export default function Home() {
   const [search, setSearch] = useState("");
   const [location, setLocation] = useLocation();
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    const handler = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener("beforeinstallprompt", handler);
+    return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
+    }
+  };
   const { t } = useLanguage();
   const { data: providers, isLoading } = useProviders({});
 
@@ -28,16 +47,16 @@ export default function Home() {
         {/* Background Image with Overlay */}
         <div className="absolute inset-0 z-0">
           {/* home repair abstract background */}
-          <img 
-            src="/hero-bg.png" 
-            alt="Background" 
+          <img
+            src="/hero-bg.png"
+            alt="Background"
             className="w-full h-full object-cover opacity-60"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/80 to-slate-900/60" />
         </div>
 
         <div className="container mx-auto px-4 relative z-10 py-20 text-center">
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
@@ -49,9 +68,19 @@ export default function Home() {
             <p className="text-lg md:text-xl text-slate-300 mb-10 max-w-2xl mx-auto text-balance">
               From home repairs to beauty services, connect with trusted professionals in your city today.
             </p>
+
+            {deferredPrompt && (
+              <Button
+                onClick={handleInstallClick}
+                className="mb-8 bg-white/10 hover:bg-white/20 text-white border border-white/20 backdrop-blur-sm"
+              >
+                <Download className="mr-2 h-4 w-4" />
+                تحميل التطبيق
+              </Button>
+            )}
           </motion.div>
 
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
@@ -60,8 +89,8 @@ export default function Home() {
             <form onSubmit={handleSearch} className="flex flex-col md:flex-row gap-2">
               <div className="flex-1 relative">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
-                <Input 
-                  placeholder="What service do you need?" 
+                <Input
+                  placeholder="What service do you need?"
                   className="pl-12 h-14 bg-white/90 border-0 text-slate-900 placeholder:text-slate-500 rounded-xl focus-visible:ring-2 focus-visible:ring-primary"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
@@ -73,7 +102,7 @@ export default function Home() {
             </form>
           </motion.div>
 
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.6, delay: 0.4 }}
@@ -202,9 +231,9 @@ export default function Home() {
           {/* professional craftsman working */}
           <div className="relative">
             <div className="absolute inset-0 bg-secondary rounded-2xl transform rotate-6 scale-95 opacity-20"></div>
-            <img 
+            <img
               src="https://images.unsplash.com/photo-1621905251189-08b45d6a269e?q=80&w=1000&auto=format&fit=crop"
-              alt="Professional" 
+              alt="Professional"
               className="rounded-2xl shadow-2xl w-[400px] h-[300px] object-cover relative z-10 rotate-3 transition-transform hover:rotate-0 duration-500"
             />
           </div>
