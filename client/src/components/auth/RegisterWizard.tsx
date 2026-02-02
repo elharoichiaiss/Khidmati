@@ -48,7 +48,8 @@ const step2Schema = z.object({
 });
 
 const step3Schema = z.object({
-    city: z.string().min(1, "Please select a city")
+    city: z.string().min(1, "Please select a city"),
+    serviceCategory: z.string().optional() // Required to pass Zod stripping
 });
 
 // We'll validate step by step, but submit one big object

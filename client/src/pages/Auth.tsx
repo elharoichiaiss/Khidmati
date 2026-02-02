@@ -82,6 +82,8 @@ export default function AuthPage() {
   // End Secret Logic
 
   const onLogin = async (data: any) => {
+    // Anti-Duplication: clear previous errors before new attempt
+    loginForm.clearErrors("root");
     try {
       if (showAdminLogin && adminCode === "admin123") { // Simple safeguard, real security is on server
         await login(data);
