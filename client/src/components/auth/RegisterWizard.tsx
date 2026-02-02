@@ -190,7 +190,7 @@ export function RegisterWizard({ onSuccess }: { onSuccess: () => void }) {
             // SOLUTION: We will call the API directly here instead of using the useAuth wrapper which might force JSON.
             // Or we can modify useAuth, but simpler to do fetch here.
 
-            const res = await fetch("/api/auth/register", {
+            const res = await fetch("/api/register", {
                 method: "POST",
                 body: formData, // fetch automatically sets Content-Type to multipart/form-data
             });
