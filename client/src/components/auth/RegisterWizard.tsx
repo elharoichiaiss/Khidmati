@@ -360,7 +360,11 @@ export function RegisterWizard({ onSuccess }: { onSuccess: () => void }) {
                                                 <FormItem>
                                                     <FormLabel>Service Category</FormLabel>
                                                     <Select
-                                                        onValueChange={field.onChange}
+                                                        onValueChange={(val) => {
+                                                            field.onChange(val);
+                                                            // Self-Healing: Immediately clear error strictly
+                                                            form.clearErrors("serviceCategory");
+                                                        }}
                                                         defaultValue={field.value}
                                                     >
                                                         <FormControl><SelectTrigger><SelectValue placeholder="Select Category" /></SelectTrigger></FormControl>
@@ -378,7 +382,13 @@ export function RegisterWizard({ onSuccess }: { onSuccess: () => void }) {
                                         <FormField control={form.control} name="city" render={({ field }) => (
                                             <FormItem>
                                                 <FormLabel>City</FormLabel>
-                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                <Select
+                                                    onValueChange={(val) => {
+                                                        field.onChange(val);
+                                                        form.clearErrors("city");
+                                                    }}
+                                                    defaultValue={field.value}
+                                                >
                                                     <FormControl><SelectTrigger><SelectValue placeholder="Select City" /></SelectTrigger></FormControl>
                                                     <SelectContent>
                                                         {MOROCCAN_CITIES.map(city => <SelectItem key={city} value={city}>{city}</SelectItem>)}
