@@ -4,6 +4,7 @@ import { useAdminAuth } from "@/hooks/use-admin-auth";
 import { useEffect, useState } from "react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { InstallAppButton } from "@/components/InstallAppButton";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
     const [location, setLocation] = useLocation();
@@ -68,6 +69,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </div>
 
             <div className="px-4 mt-auto pb-4">
+                <div className="px-4 mb-2">
+                    <InstallAppButton className="w-full justify-start" variant="outline" />
+                </div>
                 <nav className="space-y-1">
                     <Link href="/">
                         <div className="group flex items-center px-4 py-3 text-sm font-medium rounded-xl text-muted-foreground hover:bg-gray-50 hover:text-primary transition-colors cursor-pointer">

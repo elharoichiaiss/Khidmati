@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { InstallAppButton } from "@/components/InstallAppButton";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
@@ -47,6 +48,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </nav>
 
             <div className="w-px h-6 bg-border mx-2" />
+
+            <div className="w-px h-6 bg-border mx-2" />
+
+            <InstallAppButton />
 
             {/* Language Switcher */}
             <DropdownMenu>
@@ -136,6 +141,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </Link>
             )}
 
+            <div className="py-2">
+              <InstallAppButton className="w-full justify-start" variant="outline" />
+            </div>
+
             <div className="py-4 flex gap-4">
               <Button variant={language === 'en' ? 'default' : 'outline'} size="sm" onClick={() => setLanguage('en')}>EN</Button>
               <Button variant={language === 'fr' ? 'default' : 'outline'} size="sm" onClick={() => setLanguage('fr')}>FR</Button>
@@ -167,7 +176,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
             )}
           </nav>
         </div>
-      )}
+      )
+      }
 
       {/* Main Content */}
       <main className="flex-1">
@@ -217,6 +227,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
           © {new Date().getFullYear()} Khidmati. All rights reserved.
         </div>
       </footer>
-    </div>
+    </div >
   );
 }
