@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -16,7 +16,7 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { MOROCCAN_CITIES } from "@shared/constants";
 
-// Fix for default Leaflet icon
+// --- Leaflet Icon Fix ---
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 
@@ -28,6 +28,7 @@ let DefaultIcon = L.icon({
 });
 L.Marker.prototype.options.icon = DefaultIcon;
 
+// --- Schemas ---
 
 const step1Schema = z.object({
     role: z.enum(["client", "provider"]),
@@ -47,10 +48,16 @@ const step2Schema = z.object({
     // profileImage handled manually
 });
 
-const step3Schema = z.object({
-    city: z.string().min(1, "Please select a city"),
-    serviceCategory: z.string().optional() // Required to pass Zod stripping
-});
+// Dynamic Step 3 Schema Builder
+// "Clean Code" Principle: Adjust schema based on context (role) rather than manual checks
+const createStep3Schema = (role: string) => {
+    return z.object({
+        city: z.string().min(1, "Please select a city"),
+        serviceCategory: role === 'provider'
+            ? z.string().min(1, "Category is required")
+            : z.string().optional()
+    });
+};
 
 // We'll validate step by step, but submit one big object
 const steps = [
@@ -61,16 +68,23 @@ const steps = [
 
 export function RegisterWizard({ onSuccess }: { onSuccess: () => void }) {
     const [step, setStep] = useState(1);
-    const [role, setRole] = useState<"client" | "provider">("client");
     const [previewImage, setPreviewImage] = useState<string | null>(null);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
+
+    // We strictly track role here for schema generation
+    const [currentRole, setCurrentRole] = useState<string>("client");
 
     const { register: registerUser, isRegistering } = useAuth();
 
     // Forms for each step
     const form = useForm({
-        resolver: zodResolver(step === 1 ? step1Schema : step === 2 ? step2Schema : step3Schema),
+        resolver: async (values, context, options) => {
+            // Dynamic Resolver based on Step
+            if (step === 1) return zodResolver(step1Schema)(values, context, options);
+            if (step === 2) return zodResolver(step2Schema)(values, context, options);
+            return zodResolver(createStep3Schema(values.role || "client"))(values, context, options);
+        },
         defaultValues: {
             role: "client",
             fullName: "",
@@ -82,13 +96,14 @@ export function RegisterWizard({ onSuccess }: { onSuccess: () => void }) {
             bio: "",
             city: "",
             serviceCategory: ""
-        }
+        },
+        mode: "onChange" // "Clean UX": Validate on change to immediately clear errors
     });
 
-    // Watch role to update UI
+    // Update role state helper for UI rendering
     const watchedRole = form.watch("role");
     useEffect(() => {
-        setRole(watchedRole as "client" | "provider");
+        if (watchedRole) setCurrentRole(watchedRole);
     }, [watchedRole]);
 
 
@@ -113,19 +128,19 @@ export function RegisterWizard({ onSuccess }: { onSuccess: () => void }) {
         }
     };
 
-    // --- Map & City Synchronization Logic ---
+    // --- Clean Map Logic ---
     const LocationController = () => {
         const map = useMapEvents({
             click(e) {
-                // Anti-Repetition: Single source of truth for location
-                setLocation(e.latlng);
-                form.clearErrors("root"); // Clear general errors on interaction
+                setLocation(e.latlng); // "Single Source of Truth": One location state
+                form.clearErrors("root");
             },
         });
 
+        const currentCity = form.watch("city");
+
         useEffect(() => {
-            // Fly to city logic: Updates view without full re-render
-            // Coordinates for demo Moroccan cities
+            if (!currentCity) return;
             const cityCoords: Record<string, [number, number]> = {
                 "Casablanca": [33.5731, -7.5898],
                 "Rabat": [34.0209, -6.8416],
@@ -138,23 +153,18 @@ export function RegisterWizard({ onSuccess }: { onSuccess: () => void }) {
                 "Tetouan": [35.5785, -5.3684],
                 "Nador": [35.1681, -2.9335]
             };
-
-            const currentCity = form.getValues("city");
-            if (currentCity && cityCoords[currentCity]) {
+            if (cityCoords[currentCity]) {
                 map.flyTo(cityCoords[currentCity], 13);
             }
-        }, [form.watch("city"), map]);
+        }, [currentCity, map]);
 
         return location ? <Marker position={location} /> : null;
     };
 
     const onSubmit = async (data: any) => {
         try {
-            if (role === 'provider' && !data.serviceCategory) {
-                // Anti-Repetition: Error state managed by form library, prevents DOM stacking
-                form.setError("serviceCategory", { type: "manual", message: "Category is required" });
-                return;
-            }
+            // "Anti-Duplication": No manual validation here. 
+            // The Zod schema ensures serviceCategory is present if provider.
 
             // Construct FormData
             const formData = new FormData();
@@ -191,8 +201,8 @@ export function RegisterWizard({ onSuccess }: { onSuccess: () => void }) {
 
             const user = await res.json();
 
-            // Manually update query cache if needed, or just reload/redirect
-            window.location.href = "/login"; // Force reload to clear state and go to login
+            // Clean Redirect
+            window.location.href = "/login";
             onSuccess();
 
         } catch (e: any) {
@@ -204,7 +214,7 @@ export function RegisterWizard({ onSuccess }: { onSuccess: () => void }) {
 
     return (
         <div className="w-full max-w-lg mx-auto">
-            {/* Progress Bar */}
+            {/* Steps Visualizer */}
             <div className="mb-8 relative">
                 <div className="absolute top-1/2 left-0 w-full h-1 bg-gray-200 -z-10 rounded-full"></div>
                 {/* Animated Progress Line */}
@@ -328,7 +338,7 @@ export function RegisterWizard({ onSuccess }: { onSuccess: () => void }) {
                                             <FormItem><FormLabel>Phone Number</FormLabel><FormControl><Input type="tel" placeholder="+212..." {...field} /></FormControl><FormMessage /></FormItem>
                                         )} />
 
-                                        {role === 'provider' && (
+                                        {currentRole === 'provider' && (
                                             <FormField control={form.control} name="bio" render={({ field }) => (
                                                 <FormItem><FormLabel>Short Bio</FormLabel><FormControl><Textarea placeholder="Tell clients about your experience..." {...field} /></FormControl><FormMessage /></FormItem>
                                             )} />
@@ -345,25 +355,19 @@ export function RegisterWizard({ onSuccess }: { onSuccess: () => void }) {
                                         exit={{ opacity: 0, x: -20 }}
                                         className="space-y-4"
                                     >
-                                        {role === 'provider' && (
+                                        {currentRole === 'provider' && (
                                             <FormField control={form.control} name="serviceCategory" render={({ field }) => (
                                                 <FormItem>
                                                     <FormLabel>Service Category</FormLabel>
                                                     <Select
-                                                        onValueChange={(val) => {
-                                                            field.onChange(val);
-                                                            // Immediate Validation: Clear error on valid change
-                                                            if (val) form.clearErrors("serviceCategory");
-                                                        }}
+                                                        onValueChange={field.onChange}
                                                         defaultValue={field.value}
                                                     >
                                                         <FormControl><SelectTrigger><SelectValue placeholder="Select Category" /></SelectTrigger></FormControl>
                                                         <SelectContent>
-                                                            <SelectItem value="Plumbing">Plumbing</SelectItem>
-                                                            <SelectItem value="Electrician">Electrician</SelectItem>
-                                                            <SelectItem value="Cleaning">Cleaning</SelectItem>
-                                                            <SelectItem value="Beauty">Beauty</SelectItem>
-                                                            <SelectItem value="Moving">Moving</SelectItem>
+                                                            {["Plumbing", "Electrician", "Cleaning", "Beauty", "Moving"].map(cat => (
+                                                                <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                                                            ))}
                                                         </SelectContent>
                                                     </Select>
                                                     <FormMessage />
@@ -387,7 +391,9 @@ export function RegisterWizard({ onSuccess }: { onSuccess: () => void }) {
                                         <div className="space-y-2">
                                             <FormLabel>Pin Exact Location</FormLabel>
                                             <div className="h-[200px] w-full rounded-lg overflow-hidden border relative z-0">
+                                                {/* Key forces remount if needed, but here we keep it stable */}
                                                 <MapContainer
+                                                    key="register-map"
                                                     center={[33.5731, -7.5898]}
                                                     zoom={13}
                                                     style={{ height: "100%", width: "100%" }}
@@ -403,7 +409,7 @@ export function RegisterWizard({ onSuccess }: { onSuccess: () => void }) {
                             </AnimatePresence>
 
                             {form.formState.errors.root && (
-                                <div className="text-red-500 text-sm font-medium p-2 bg-red-50 rounded">{form.formState.errors.root.message}</div>
+                                <div className="text-red-500 text-sm font-medium p-2 bg-red-50 rounded mt-4">{form.formState.errors.root.message}</div>
                             )}
                         </CardContent>
 
