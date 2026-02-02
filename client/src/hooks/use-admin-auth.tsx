@@ -40,6 +40,7 @@ export function useAdminAuth() {
         },
         onSuccess: (data) => {
             queryClient.setQueryData(["/api/admin/me"], data.user);
+            localStorage.setItem("app_mode", "admin");
             setLocation("/k-admin-portal-secure"); // Redirect to dashboard
             toast({
                 title: "Welcome Admin",
@@ -61,6 +62,7 @@ export function useAdminAuth() {
         },
         onSuccess: () => {
             queryClient.setQueryData(["/api/admin/me"], null);
+            localStorage.removeItem("app_mode");
             setLocation("/k-admin-portal-secure/login");
             toast({
                 title: "Logged Out",

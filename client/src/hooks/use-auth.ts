@@ -33,6 +33,10 @@ export function useAuth() {
     },
     onSuccess: (data) => {
       queryClient.setQueryData([api.auth.me.path], data);
+
+      // Smart Redirect Logic: Save mode
+      localStorage.setItem("app_mode", "client");
+
       if (data.role === "admin") {
         setLocation("/k-admin-portal-secure");
       } else if (data.role === "provider") {
@@ -73,6 +77,7 @@ export function useAuth() {
     },
     onSuccess: () => {
       queryClient.setQueryData([api.auth.me.path], null);
+      localStorage.removeItem("app_mode");
       setLocation("/login");
     },
   });
