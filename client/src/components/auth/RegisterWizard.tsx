@@ -197,7 +197,8 @@ export function RegisterWizard({ onSuccess }: { onSuccess: () => void }) {
 
             if (!res.ok) {
                 const error = await res.json();
-                throw new Error(error.message || "Registration failed");
+                const msg = error.field ? `Error in '${error.field}': ${error.message}` : (error.message || "Registration failed");
+                throw new Error(msg);
             }
 
             const user = await res.json();
