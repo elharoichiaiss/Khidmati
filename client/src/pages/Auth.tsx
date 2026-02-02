@@ -193,8 +193,22 @@ export default function AuthPage() {
                     )}
 
                     <Button type="submit" className={`w-full ${showAdminLogin ? "bg-red-600 hover:bg-red-700" : ""}`} disabled={isLoggingIn}>
-                      {isLoggingIn ? <Loader2 className="w-4 h-4 animate-spin" /> : "Sign In"}
+                      {isLoggingIn ? <Loader2 className="w-4 h-4 animate-spin" /> : (showAdminLogin ? "Admin Sign In" : "Sign In")}
                     </Button>
+
+                    {showAdminLogin && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="w-full mt-2"
+                        onClick={() => {
+                          setShowAdminLogin(false);
+                          setAdminCode(""); // Clear code on exit
+                        }}
+                      >
+                        Cancel (Back to User Login)
+                      </Button>
+                    )}
                   </form>
                 </Form>
               </TabsContent>
