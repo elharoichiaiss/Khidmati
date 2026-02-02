@@ -1,8 +1,8 @@
 import { z } from 'zod';
-export { 
-  insertUserSchema, 
-  insertProviderProfileSchema, 
-  insertReviewSchema, 
+export {
+  insertUserSchema,
+  insertProviderProfileSchema,
+  insertReviewSchema,
   insertMessageSchema,
   users,
   providerProfiles,
@@ -10,10 +10,10 @@ export {
   conversations,
   messages
 } from './schema';
-import { 
-  insertUserSchema, 
-  insertProviderProfileSchema, 
-  insertReviewSchema, 
+import {
+  insertUserSchema,
+  insertProviderProfileSchema,
+  insertReviewSchema,
   insertMessageSchema,
   users,
   providerProfiles,
@@ -50,6 +50,10 @@ export const api = {
       method: 'POST' as const,
       path: '/api/register',
       input: insertUserSchema.extend({
+        username: z.string().min(3, "Username must be at least 3 characters").max(20, "Username must be less than 20 characters"),
+        password: z.string().min(6, "Password must be at least 6 characters"),
+        fullName: z.string().min(2, "Full name is required"),
+        email: z.string().email("Please enter a valid email address").optional().or(z.literal('')),
         // Optional profile data during registration if role is provider
         providerProfile: insertProviderProfileSchema.omit({ userId: true }).optional(),
       }),

@@ -213,6 +213,21 @@ export function RegisterWizard({ onSuccess }: { onSuccess: () => void }) {
     };
 
 
+    const handleKeyDown = async (e: React.KeyboardEvent) => {
+        // Allow Enter in Textarea for new lines
+        if (e.target instanceof HTMLTextAreaElement) return;
+
+        if (e.key === "Enter") {
+            e.preventDefault();
+            if (step < 3) {
+                await nextStep();
+            } else {
+                // On final step, trigger submit
+                form.handleSubmit(onSubmit)();
+            }
+        }
+    };
+
     return (
         <div className="w-full max-w-lg mx-auto">
             {/* Steps Visualizer */}
@@ -243,7 +258,7 @@ export function RegisterWizard({ onSuccess }: { onSuccess: () => void }) {
 
             <Card className="shadow-xl bg-white/95 backdrop-blur border-t-4 border-t-primary">
                 <Form {...form}>
-                    <form className="space-y-4">
+                    <form className="space-y-4" onKeyDown={handleKeyDown}>
                         <CardHeader>
                             <CardTitle>{steps[step - 1].title}</CardTitle>
                             <CardDescription>{steps[step - 1].description}</CardDescription>
