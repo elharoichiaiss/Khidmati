@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLocation } from "wouter";
 import { Loader2 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { RegisterWizard } from "@/components/auth/RegisterWizard";
 
 // Combined schema for registration
@@ -34,8 +34,21 @@ const registerSchema = insertUserSchema.extend({
 
 export default function AuthPage() {
   const [activeTab, setActiveTab] = useState("login");
-  const { login, register, isLoggingIn, isRegistering } = useAuth();
+  const { user, login, register, isLoggingIn, isRegistering } = useAuth();
   const [location, setLocation] = useLocation();
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      if (user.role === "provider") {
+        setLocation("/profile");
+      } else if (user.role === "admin") {
+        setLocation("/k-admin-portal-secure");
+      } else {
+        setLocation("/");
+      }
+    }
+  }, [user, setLocation]);
 
   // Handle URL params to switch tab
   if (location.includes("register") && activeTab !== "register") {
