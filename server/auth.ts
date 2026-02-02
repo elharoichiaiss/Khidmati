@@ -36,7 +36,7 @@ export function setupAuth(app: Express) {
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       try {
-        const user = await storage.getUserByUsername(username);
+        const user = await storage.getUserByUsername(username.trim().toLowerCase());
         if (!user) {
           return done(null, false, { message: "Incorrect username." });
         }

@@ -38,7 +38,7 @@ export async function registerRoutes(
 
       // Manual data structuring and type coercion for FormData
       const structuredData: any = {
-        username: bodyData.username,
+        username: bodyData.username?.trim().toLowerCase(),
         password: bodyData.password,
         fullName: bodyData.fullName,
         email: bodyData.email,
