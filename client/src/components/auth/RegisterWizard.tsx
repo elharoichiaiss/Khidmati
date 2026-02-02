@@ -167,9 +167,12 @@ export function RegisterWizard({ onSuccess }: { onSuccess: () => void }) {
             // The Zod schema ensures serviceCategory is present if provider.
 
             // Construct FormData
+            // "Fix Missing Fields": Use form.getValues() to get ALL fields, not just Step 3 validation output
+            const allData = form.getValues();
             const formData = new FormData();
-            Object.keys(data).forEach(key => {
-                const value = data[key];
+            Object.keys(allData).forEach(key => {
+                // @ts-ignore
+                const value = allData[key];
                 if (key !== 'confirmPassword' && value !== undefined && value !== null && value !== "") {
                     formData.append(key, value);
                 }
