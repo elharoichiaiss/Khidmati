@@ -27,9 +27,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 group">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-primary/25 group-hover:scale-105 transition-transform">
-              K
-            </div>
+            <img
+              src="/logo.png"
+              alt="Khidmati Logo"
+              className="w-8 h-8 rounded-lg shadow-lg shadow-primary/25 group-hover:scale-105 transition-transform object-cover"
+            />
             <span className="font-display font-bold text-2xl tracking-tight text-foreground">
               Khidmati
             </span>
@@ -192,7 +194,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-4 gap-8">
           <div>
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-6 h-6 rounded bg-primary text-white flex items-center justify-center font-bold text-sm">K</div>
+              <img src="/logo.png" alt="Khidmati Logo" className="w-6 h-6 rounded object-cover" />
               <span className="font-display font-bold text-lg">Khidmati</span>
             </div>
             <p className="text-muted-foreground text-sm leading-relaxed">
