@@ -377,7 +377,7 @@ export default function ProviderDetail() {
           <div className="md:col-span-2 space-y-8">
             <section>
               <h2 className="text-xl font-bold mb-4">About</h2>
-              <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
+              <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap" dir="ltr">
                 {provider.profile?.bio || "This provider has not added a bio yet."}
               </p>
             </section>
@@ -396,7 +396,7 @@ export default function ProviderDetail() {
                   ))}
                 </div>
               ) : (
-                <div className="p-8 bg-secondary/20 rounded-xl text-center text-muted-foreground border border-dashed">
+                <div className="p-8 bg-secondary/20 rounded-xl text-center text-muted-foreground border border-dashed" dir="ltr">
                   No portfolio images uploaded.
                 </div>
               )}

@@ -90,7 +90,7 @@ export default function AdminDashboard() {
                 <p className="text-muted-foreground mt-1">Welcome back, Admin.</p>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
                 {stats.map((stat) => (
                     <Card key={stat.title} className="border-gray-200 shadow-sm">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -123,7 +123,7 @@ export default function AdminDashboard() {
                     </Link>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-3 mb-4">
+                <div className="grid gap-4 grid-cols-1 sm:grid-cols-3 mb-4">
                     {ticketStats.map((stat) => (
                         <Card key={stat.title} className="border-gray-200 shadow-sm">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -184,8 +184,8 @@ export default function AdminDashboard() {
                 </Card>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-                <Card className="col-span-4 border-gray-200 shadow-sm">
+            <div className="grid gap-4 grid-cols-1 lg:grid-cols-7">
+                <Card className="lg:col-span-4 border-gray-200 shadow-sm">
                     <CardHeader>
                         <CardTitle>Recent Registrations</CardTitle>
                     </CardHeader>
@@ -213,7 +213,7 @@ export default function AdminDashboard() {
                     </CardContent>
                 </Card>
 
-                <Card className="col-span-3 border-none shadow-lg bg-gradient-to-br from-primary to-primary/80 text-primary-foreground">
+                <Card className="lg:col-span-3 border-none shadow-lg bg-gradient-to-br from-primary to-primary/80 text-primary-foreground">
                     <CardHeader>
                         <CardTitle className="text-primary-foreground">Quick Actions</CardTitle>
                     </CardHeader>
