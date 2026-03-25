@@ -186,6 +186,34 @@ export async function registerRoutes(
     }
   });
 
+  // User Profile Update (fullName, profileImage) - works for ALL roles
+  app.patch("/api/user/profile", upload.single('profileImage'), async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const user = req.user as any;
+
+    try {
+      const updateData: any = {};
+
+      if (req.body.fullName && req.body.fullName.trim()) {
+        updateData.fullName = req.body.fullName.trim();
+      }
+      if (req.file) {
+        updateData.profileImage = `/uploads/${req.file.filename}`;
+      }
+
+      const updatedUser = await storage.updateUser(user.id, updateData);
+
+      // Refresh passport session with updated user data
+      req.login(updatedUser, (err) => {
+        if (err) return res.status(500).json({ message: "Session refresh failed" });
+        res.json(updatedUser);
+      });
+    } catch (err) {
+      console.error("Profile update error:", err);
+      res.status(500).json({ message: "Failed to update profile" });
+    }
+  });
+
   // Reviews Routes
   app.get(api.reviews.list.path, async (req, res) => {
     const reviews = await storage.getReviews(Number(req.params.id));

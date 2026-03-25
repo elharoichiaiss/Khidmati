@@ -10,7 +10,8 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge"; // Ensure Badge is available or use a div
 import { useForm } from "react-hook-form";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Loader2,
   UploadCloud,
@@ -22,7 +23,9 @@ import {
   Check,
   ArrowLeft,
   Bell,
-  LayoutDashboard
+  LayoutDashboard,
+  Camera,
+  Save,
 } from "lucide-react";
 import { Link } from "wouter";
 import { usePush } from "@/hooks/use-push";
@@ -43,6 +46,131 @@ let DefaultIcon = L.icon({
   iconAnchor: [12, 41]
 });
 L.Marker.prototype.options.icon = DefaultIcon;
+
+// Client/Non-provider editable profile section
+function ClientProfileSection({ user, language, t, subscribe, isSubscribing }: any) {
+  const queryClient = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [fullName, setFullName] = useState(user.fullName);
+  const [saving, setSaving] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const formData = new FormData();
+      formData.append('fullName', fullName);
+      if (fileRef.current?.files?.[0]) {
+        formData.append('profileImage', fileRef.current.files[0]);
+      }
+      const res = await fetch('/api/user/profile', {
+        method: 'PATCH',
+        body: formData,
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Failed');
+      await queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
+      setEditing(false);
+      setPreviewUrl(null);
+    } catch {
+      alert('Failed to save profile');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const avatarSrc = previewUrl || (user.profileImage ? (user.profileImage.startsWith('/') ? user.profileImage : `/uploads/${user.profileImage}`) : undefined);
+
+  return (
+    <Layout>
+      <div className="container mx-auto px-4 py-8 max-w-2xl">
+        <div className="text-center mb-8">
+          <div className="relative inline-block">
+            <Avatar className="w-24 h-24 mx-auto border-4 border-white shadow-lg">
+              <AvatarImage src={avatarSrc} className="object-cover" />
+              <AvatarFallback className="text-2xl bg-primary text-primary-foreground">{fullName[0]}</AvatarFallback>
+            </Avatar>
+            {editing && (
+              <button
+                onClick={() => fileRef.current?.click()}
+                className="absolute bottom-0 right-0 bg-primary text-white rounded-full p-1.5 shadow-md border-2 border-white hover:bg-primary/90 transition"
+              >
+                <Camera className="w-3.5 h-3.5" />
+              </button>
+            )}
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={e => {
+                const file = e.target.files?.[0];
+                if (file) setPreviewUrl(URL.createObjectURL(file));
+              }}
+            />
+          </div>
+
+          {editing ? (
+            <div className="mt-3 flex items-center justify-center gap-2">
+              <Input
+                value={fullName}
+                onChange={e => setFullName(e.target.value)}
+                className="max-w-xs text-center font-bold text-lg"
+              />
+            </div>
+          ) : (
+            <h1 className="text-3xl font-bold font-display mt-3">{user.fullName}</h1>
+          )}
+          <Badge variant="secondary" className="mt-2">{t('client') || 'Client'}</Badge>
+        </div>
+
+        <div className="flex justify-center gap-2 mb-6">
+          {editing ? (
+            <>
+              <Button onClick={handleSave} disabled={saving}>
+                {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                {language === 'ar' ? 'حفظ' : 'Save'}
+              </Button>
+              <Button variant="outline" onClick={() => { setEditing(false); setFullName(user.fullName); setPreviewUrl(null); }}>
+                {language === 'ar' ? 'إلغاء' : 'Cancel'}
+              </Button>
+            </>
+          ) : (
+            <Button variant="outline" onClick={() => setEditing(true)}>
+              <Edit2 className="w-4 h-4 mr-2" />
+              {language === 'ar' ? 'تعديل الملف الشخصي' : 'Edit Profile'}
+            </Button>
+          )}
+        </div>
+
+        <Card className="shadow-md">
+          <CardHeader className="border-b bg-muted/30">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Bell className="w-5 h-5 text-primary" /> {t('notifications') || 'Notifications'}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h3 className="font-semibold">{t('pushNotifications') || 'Push Notifications'}</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {language === 'ar'
+                    ? 'احصل على إشعارات فورية عند وصول رسائل جديدة أو تحديثات في الخدمة.'
+                    : 'Get instant alerts for new messages and service updates.'}
+                </p>
+              </div>
+              <Button onClick={subscribe} disabled={isSubscribing} className="shrink-0">
+                {isSubscribing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bell className="w-4 h-4 mr-2" />}
+                {language === 'ar' ? 'تفعيل' : 'Enable'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </Layout>
+  );
+}
 
 export default function Profile() {
   const { user, isLoading } = useAuth();
@@ -127,45 +255,13 @@ export default function Profile() {
 
   if (user.role !== "provider") {
     return (
-      <Layout>
-        <div className="container mx-auto px-4 py-8 max-w-2xl">
-          <div className="text-center mb-8">
-            <Avatar className="w-24 h-24 mx-auto mb-4 border-4 border-white shadow-lg">
-              <AvatarFallback className="text-2xl bg-primary text-primary-foreground">{user.fullName[0]}</AvatarFallback>
-            </Avatar>
-            <h1 className="text-3xl font-bold font-display">{user.fullName}</h1>
-            <Badge variant="secondary" className="mt-2">{t("client") || "Client"}</Badge>
-          </div>
-
-          <Card className="shadow-md">
-            <CardHeader className="border-b bg-muted/30">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Bell className="w-5 h-5 text-primary" /> {t("notifications") || "Notifications"}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <h3 className="font-semibold">{t("pushNotifications") || "Push Notifications"}</h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {language === 'ar'
-                      ? 'احصل على إشعارات فورية عند وصول رسائل جديدة أو تحديثات في الخدمة.'
-                      : 'Get instant alerts for new messages and service updates.'}
-                  </p>
-                </div>
-                <Button
-                  onClick={subscribe}
-                  disabled={isSubscribing}
-                  className="shrink-0"
-                >
-                  {isSubscribing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bell className="w-4 h-4 mr-2" />}
-                  {language === 'ar' ? 'تفعيل' : 'Enable'}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </Layout>
+      <ClientProfileSection
+        user={user}
+        language={language}
+        t={t}
+        subscribe={subscribe}
+        isSubscribing={isSubscribing}
+      />
     );
   }
 

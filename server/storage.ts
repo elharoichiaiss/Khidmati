@@ -15,6 +15,7 @@ export interface IStorage {
   // Users & Auth
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  updateUser(id: number, updates: Partial<Pick<User, 'fullName' | 'profileImage' | 'city' | 'phone' | 'email'>>): Promise<User>;
   createUser(user: InsertUser & { providerProfile?: Omit<InsertProviderProfile, "userId"> }): Promise<User>;
 
   // Providers
@@ -111,6 +112,11 @@ export class DatabaseStorage implements IStorage {
 
       return user;
     });
+  }
+
+  async updateUser(id: number, updates: Partial<Pick<User, 'fullName' | 'profileImage' | 'city' | 'phone' | 'email'>>): Promise<User> {
+    const [updated] = await db.update(users).set(updates).where(eq(users.id, id)).returning();
+    return updated;
   }
 
   async getProviderProfile(userId: number): Promise<(ProviderProfile & { user: User }) | undefined> {
