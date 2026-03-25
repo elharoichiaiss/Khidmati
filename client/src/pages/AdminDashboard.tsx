@@ -160,19 +160,19 @@ export default function AdminDashboard() {
                             <div className="space-y-3">
                                 {safeTickets.filter(t => t.status === 'open').slice(0, 5).map((ticket) => (
                                     <Link key={ticket.id} href={`/k-admin-portal-secure/tickets/${ticket.id}`}>
-                                        <div className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer">
+                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer gap-2">
                                             <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-2 mb-1">
-                                                    <span className="font-medium text-sm truncate">{ticket.subject}</span>
-                                                    <Badge variant={ticket.priority === 'high' ? 'destructive' : 'secondary'} className="text-[10px] px-1.5 py-0">
+                                                <div className="flex flex-wrap items-center gap-2 mb-1">
+                                                    <span className="font-medium text-sm truncate max-w-[180px]">{ticket.subject}</span>
+                                                    <Badge variant={ticket.priority === 'high' ? 'destructive' : 'secondary'} className="text-[10px] px-1.5 py-0 shrink-0">
                                                         {ticket.priority === 'high' ? '🔴 High' : ticket.priority === 'normal' ? 'Normal' : 'Low'}
                                                     </Badge>
                                                 </div>
-                                                <p className="text-xs text-muted-foreground">
+                                                <p className="text-xs text-muted-foreground truncate">
                                                     By {ticket.user.fullName} • {new Date(ticket.createdAt || "").toLocaleDateString()}
                                                 </p>
                                             </div>
-                                            <Button variant="ghost" size="sm" className="shrink-0 text-xs">
+                                            <Button variant="ghost" size="sm" className="shrink-0 text-xs self-start sm:self-center">
                                                 View →
                                             </Button>
                                         </div>

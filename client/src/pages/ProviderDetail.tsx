@@ -207,18 +207,18 @@ export default function ProviderDetail() {
 
   return (
     <Layout>
-      <div className="bg-slate-50 dark:bg-slate-900 border-b overflow-x-hidden">
+      <div className="bg-slate-50 dark:bg-slate-900 border-b overflow-x-hidden pb-24">
         <div className="container mx-auto px-4 py-12">
-          <div className="flex flex-col md:flex-row gap-8 items-start">
+          <div className="flex flex-col sm:flex-row gap-6 items-start">
             <Avatar className="w-32 h-32 border-4 border-white shadow-xl">
               <AvatarImage src={profileImageUrl} className="object-cover" />
               <AvatarFallback className="text-3xl">{provider.fullName[0]}</AvatarFallback>
             </Avatar>
 
             <div className="flex-1">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h1 className="text-3xl font-display font-bold mb-2">{provider.fullName}</h1>
+              <div className="flex items-start justify-between gap-2 flex-wrap">
+                <div className="min-w-0 flex-1">
+                  <h1 className="text-2xl sm:text-3xl font-display font-bold mb-2 break-words max-w-full">{provider.fullName}</h1>
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-2 text-sm text-muted-foreground mb-4">
                     <span className="flex items-center gap-1">
                       <Briefcase className="w-4 h-4" /> {provider.profile?.serviceCategory || "Professional"}
@@ -242,7 +242,7 @@ export default function ProviderDetail() {
                 )}
               </div>
 
-              <div className="flex gap-3 mt-2">
+              <div className="flex flex-wrap gap-2 mt-2">
                 {user && user.id === provider.id ? (
                   <>
                     <Button onClick={() => setLocation("/provider/dashboard")} className="gap-2 shadow-lg shadow-primary/20 bg-emerald-600 hover:bg-emerald-700">

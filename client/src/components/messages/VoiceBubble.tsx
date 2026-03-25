@@ -64,9 +64,7 @@ export const VoiceBubble = ({ fileUrl, duration }: VoiceBubbleProps) => {
         }
     };
 
-    // Generate fake waveform bars
-    const bars = Array.from({ length: 30 }, (_, i) => {
-        // Create a pattern that looks somewhat like a voice wave
+    const bars = Array.from({ length: 20 }, () => {
         const height = Math.max(20, Math.random() * 80);
         return height;
     });
@@ -86,7 +84,7 @@ export const VoiceBubble = ({ fileUrl, duration }: VoiceBubbleProps) => {
                 )}
             </button>
 
-            <div className="flex-1 flex flex-col justify-center gap-1">
+            <div className="min-w-0 flex flex-col justify-center gap-1 overflow-hidden">
                 <div className="flex items-center gap-0.5 h-8">
                     {bars.map((height, i) => {
                         const isPlayed = (i / bars.length) * 100 < progress;
