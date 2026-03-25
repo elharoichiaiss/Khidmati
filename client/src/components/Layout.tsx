@@ -128,6 +128,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
               {/* Auth Buttons */}
               {user ? (
                 <div className="flex items-center gap-2">
+                  {user.role === "provider" && (
+                    <Link href="/provider/dashboard">
+                      <Button variant="ghost" size="sm" className="hidden md:flex gap-2 text-muted-foreground hover:text-emerald-600 transition-colors">
+                        <LayoutDashboard className="w-4 h-4" />
+                        <span className="font-medium">{language === 'ar' ? 'لوحة التحكم' : 'Dashboard'}</span>
+                      </Button>
+                    </Link>
+                  )}
                   <Link href="/favorites">
                     <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-red-500 transition-colors">
                       <Heart className="w-5 h-5" />

@@ -23,6 +23,7 @@ import { Star, MapPin, CheckCircle2, MessageSquare, Briefcase, Calendar, Loader2
 import { useState } from "react";
 import { toast } from "@/hooks/use-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { DashboardEdgeTab } from "@/components/DashboardEdgeTab";
 import { cn } from "@/lib/utils";
 
 export default function ProviderDetail() {
@@ -207,7 +208,11 @@ export default function ProviderDetail() {
 
   return (
     <Layout>
-      <div className="bg-slate-50 dark:bg-slate-900 border-b overflow-x-hidden pb-24">
+      {/* Mobile Edge Tab - shown only when provider views their own profile */}
+      {user && user.id === provider.id && (
+        <DashboardEdgeTab href="/provider/dashboard" />
+      )}
+      <div className="bg-slate-50 dark:bg-slate-900 border-b overflow-x-hidden pb-6">
         <div className="container mx-auto px-4 py-12">
           <div className="flex flex-col sm:flex-row gap-6 items-start">
             <Avatar className="w-32 h-32 border-4 border-white shadow-xl">
