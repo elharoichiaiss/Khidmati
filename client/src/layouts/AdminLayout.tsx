@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Users, Settings, LogOut, Home, Menu } from "lucide-react";
+import { LayoutDashboard, Users, Settings, LogOut, Home, Menu, LifeBuoy } from "lucide-react";
 import { useAdminAuth } from "@/hooks/use-admin-auth";
 import { useEffect, useState } from "react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -30,15 +30,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const navigation = [
         { name: "Overview", href: "/k-admin-portal-secure", icon: LayoutDashboard },
         { name: "Users Management", href: "/k-admin-portal-secure/users", icon: Users },
+        { name: "Support Tickets", href: "/k-admin-portal-secure/tickets", icon: LifeBuoy },
         { name: "Settings", href: "/k-admin-portal-secure/settings", icon: Settings },
     ];
 
     const NavContent = () => (
         <div className="flex flex-col h-full">
             <div className="flex items-center flex-shrink-0 px-6 mb-10 pt-8">
-                <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-primary-foreground font-bold text-2xl mr-3 shadow-lg shadow-primary/20">
-                    K
-                </div>
+                <img src="/logo.png" alt="Khidmati Logo" className="w-10 h-10 rounded-xl mr-3 shadow-lg shadow-primary/20 object-cover" />
                 <h1 className="text-xl font-bold tracking-tight text-foreground">Khidmati <span className="text-primary font-medium">Admin</span></h1>
             </div>
 
@@ -108,9 +107,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             {/* Mobile Header */}
             <div className="md:hidden flex items-center justify-between p-4 bg-white border-b border-gray-100 sticky top-0 z-40">
                 <div className="flex items-center">
-                    <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground font-bold text-lg mr-2">
-                        K
-                    </div>
+                    <img src="/logo.png" alt="Khidmati Logo" className="w-8 h-8 rounded-lg mr-2 object-cover" />
                     <span className="font-bold text-foreground">Khidmati Admin</span>
                 </div>
                 <Sheet open={open} onOpenChange={setOpen}>

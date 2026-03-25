@@ -1,20 +1,32 @@
 import { useQuery } from "@tanstack/react-query";
-import { User } from "@shared/schema";
+import { User, Ticket } from "@shared/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, UserCog, UserCheck, Activity } from "lucide-react";
+import { Users, UserCog, UserCheck, Activity, LifeBuoy, AlertCircle, CheckCircle2, Clock } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Link } from "wouter";
+import { Button } from "@/components/ui/button";
 
 export default function AdminDashboard() {
     const { data: users, isLoading } = useQuery<User[]>({
         queryKey: ["/api/admin/users"],
     });
 
-    if (isLoading) {
+    const { data: tickets, isLoading: ticketsLoading } = useQuery<(Ticket & { user: User })[]>({
+        queryKey: ["/api/admin/tickets"],
+    });
+
+    if (isLoading || ticketsLoading) {
         return (
             <div className="flex justify-center items-center h-64">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
             </div>
         );
     }
+
+    const safeTickets = tickets || [];
+    const openTickets = safeTickets.filter(t => t.status === 'open').length;
+    const resolvedTickets = safeTickets.filter(t => t.status === 'resolved').length;
+    const totalTickets = safeTickets.length;
 
     const stats = [
         {
@@ -47,6 +59,30 @@ export default function AdminDashboard() {
         },
     ];
 
+    const ticketStats = [
+        {
+            title: "Open Tickets",
+            value: openTickets,
+            icon: AlertCircle,
+            color: "text-amber-600",
+            bg: "bg-amber-100",
+        },
+        {
+            title: "Resolved",
+            value: resolvedTickets,
+            icon: CheckCircle2,
+            color: "text-green-600",
+            bg: "bg-green-100",
+        },
+        {
+            title: "Total Tickets",
+            value: totalTickets,
+            icon: LifeBuoy,
+            color: "text-blue-600",
+            bg: "bg-blue-100",
+        },
+    ];
+
     return (
         <div className="space-y-6">
             <div>
@@ -73,6 +109,79 @@ export default function AdminDashboard() {
                         </CardContent>
                     </Card>
                 ))}
+            </div>
+
+            {/* Support Tickets Section */}
+            <div>
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xl font-bold flex items-center gap-2">
+                        <LifeBuoy className="w-5 h-5 text-primary" />
+                        Support Tickets
+                    </h3>
+                    <Link href="/k-admin-portal-secure/tickets">
+                        <Button variant="outline" size="sm">View All</Button>
+                    </Link>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-3 mb-4">
+                    {ticketStats.map((stat) => (
+                        <Card key={stat.title} className="border-gray-200 shadow-sm">
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium text-gray-600">
+                                    {stat.title}
+                                </CardTitle>
+                                <div className={`p-2 rounded-full ${stat.bg}`}>
+                                    <stat.icon className={`h-4 w-4 ${stat.color}`} />
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">{stat.value}</div>
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
+
+                {/* Recent Open Tickets */}
+                <Card className="border-gray-200 shadow-sm">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2 text-base">
+                            <Clock className="w-4 h-4 text-amber-500" />
+                            Recent Open Tickets
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        {ticketsLoading ? (
+                            <div className="text-center text-muted-foreground text-sm py-4">Loading...</div>
+                        ) : safeTickets.filter(t => t.status === 'open').length === 0 ? (
+                            <div className="text-center text-muted-foreground text-sm py-4">
+                                No open tickets 🎉
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                {safeTickets.filter(t => t.status === 'open').slice(0, 5).map((ticket) => (
+                                    <Link key={ticket.id} href={`/k-admin-portal-secure/tickets/${ticket.id}`}>
+                                        <div className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer">
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <span className="font-medium text-sm truncate">{ticket.subject}</span>
+                                                    <Badge variant={ticket.priority === 'high' ? 'destructive' : 'secondary'} className="text-[10px] px-1.5 py-0">
+                                                        {ticket.priority === 'high' ? '🔴 High' : ticket.priority === 'normal' ? 'Normal' : 'Low'}
+                                                    </Badge>
+                                                </div>
+                                                <p className="text-xs text-muted-foreground">
+                                                    By {ticket.user.fullName} • {new Date(ticket.createdAt || "").toLocaleDateString()}
+                                                </p>
+                                            </div>
+                                            <Button variant="ghost" size="sm" className="shrink-0 text-xs">
+                                                View →
+                                            </Button>
+                                        </div>
+                                    </Link>
+                                ))}
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
@@ -113,11 +222,13 @@ export default function AdminDashboard() {
                             Manage your platform efficiently. Check for new provider applications or handle user reports.
                         </p>
                         <div className="grid gap-2">
+                            <Link href="/k-admin-portal-secure/tickets">
+                                <button className="w-full text-left px-3 py-2 text-sm bg-white/10 hover:bg-white/20 rounded-md transition-colors border border-white/10 text-white font-medium">
+                                    📬 View Support Tickets {openTickets > 0 && `(${openTickets} open)`}
+                                </button>
+                            </Link>
                             <button className="w-full text-left px-3 py-2 text-sm bg-white/10 hover:bg-white/20 rounded-md transition-colors border border-white/10 text-white font-medium">
                                 Send Notification to All
-                            </button>
-                            <button className="w-full text-left px-3 py-2 text-sm bg-white/10 hover:bg-white/20 rounded-md transition-colors border border-white/10 text-white font-medium">
-                                Generate Monthly Report
                             </button>
                             <button className="w-full text-left px-3 py-2 text-sm bg-white/10 hover:bg-white/20 rounded-md transition-colors border border-white/10 text-white font-medium">
                                 Review Settings

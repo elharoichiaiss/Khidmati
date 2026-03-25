@@ -1,10 +1,14 @@
 import {
-  users, providerProfiles, reviews, conversations, messages,
+  users, providerProfiles, reviews, conversations, messages, bookings, notifications, favorites, pushSubscriptions,
+  tickets, ticketMessages,
   type User, type InsertUser, type ProviderProfile, type InsertProviderProfile,
-  type Review, type InsertReview, type Conversation, type Message, type InsertMessage
+  type Review, type InsertReview, type Conversation, type Message, type InsertMessage,
+  type Booking, type InsertBooking, type Notification, type InsertNotification, type Favorite,
+  type PushSubscription, type InsertPushSubscription,
+  type Ticket, type InsertTicket, type TicketMessage, type InsertTicketMessage
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, or, and, desc, like, ilike, sql } from "drizzle-orm";
+import { eq, or, and, desc, like, ilike, sql, lt, inArray } from "drizzle-orm";
 import { hash } from "bcryptjs";
 
 export interface IStorage {
@@ -27,11 +31,54 @@ export interface IStorage {
   getConversation(id: number): Promise<(Conversation & { messages: Message[] }) | undefined>;
   createConversation(userId1: number, userId2: number): Promise<Conversation>;
   createMessage(message: InsertMessage): Promise<Message>;
+  getUnreadMessageCount(userId: number): Promise<number>;
 
   // Admin
   getAllUsers(): Promise<User[]>;
+  createReview(review: InsertReview): Promise<Review>;
+  searchProviders(query: string, city?: string, category?: string): Promise<(User & { profile: ProviderProfile | null } & { rating: number, reviewCount: number })[]>;
+  getProvider(id: number): Promise<User & { profile: ProviderProfile | null } & { rating: number, reviewCount: number, reviews: (Review & { client: User })[] } | undefined>;
   deleteUser(id: number): Promise<void>;
   toggleUserBan(id: number): Promise<User>;
+
+  // Bookings
+  createBooking(booking: InsertBooking): Promise<Booking>;
+  getBookingsForUser(userId: number): Promise<(Booking & { client: User; provider: User })[]>;
+  updateBookingStatus(bookingId: number, status: "pending" | "confirmed" | "rejected" | "completed"): Promise<Booking>;
+  getProviderStats(providerId: number): Promise<{
+    totalEarnings: number;
+    totalBookings: number;
+    pendingRequests: number;
+    averageRating: number;
+    chartData: { name: string; income: number }[];
+  }>;
+
+  // Notifications
+  createNotification(notification: InsertNotification): Promise<Notification>;
+  getUnreadNotifications(userId: number): Promise<Notification[]>;
+  markNotificationRead(notificationId: number): Promise<Notification>;
+  markAllNotificationsAsRead(userId: number): Promise<void>;
+
+  // Favorites
+  toggleFavorite(userId: number, providerId: number): Promise<{ favorited: boolean }>;
+  getFavorites(userId: number): Promise<(Favorite & { provider: User & { profile: ProviderProfile } })[]>;
+  checkFavorite(userId: number, providerId: number): Promise<boolean>;
+
+  // Message Management
+  deleteMessage(messageId: number, userId: number): Promise<void>;
+  cleanupOldMessages(): Promise<number>;
+  // Push Subscriptions
+  upsertPushSubscription(userId: number, subscription: { endpoint: string, p256dh: string, auth: string }): Promise<PushSubscription>;
+  getPushSubscriptionsForUser(userId: number): Promise<PushSubscription[]>;
+  deletePushSubscription(id: number): Promise<void>;
+
+  // Support Tickets
+  getTicketsForUser(userId: number): Promise<Ticket[]>;
+  getAllTickets(): Promise<(Ticket & { user: User })[]>;
+  getTicket(id: number): Promise<(Ticket & { messages: (TicketMessage & { sender: User })[], user: User }) | undefined>;
+  createTicket(ticket: InsertTicket): Promise<Ticket>;
+  createTicketMessage(message: InsertTicketMessage): Promise<TicketMessage>;
+  updateTicketStatus(id: number, status: "open" | "closed" | "resolved"): Promise<Ticket>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -147,11 +194,6 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
-  async createReview(review: InsertReview): Promise<Review> {
-    const [newReview] = await db.insert(reviews).values(review).returning();
-    return newReview;
-  }
-
   async getConversations(userId: number): Promise<(Conversation & { otherUser: User })[]> {
     const results = await db.select()
       .from(conversations)
@@ -224,17 +266,38 @@ export class DatabaseStorage implements IStorage {
 
   async createMessage(message: InsertMessage): Promise<Message> {
     return await db.transaction(async (tx) => {
-      const [msg] = await tx.insert(messages).values(message).returning();
+      const [msg] = await tx.insert(messages).values({
+        ...message,
+        type: message.type || "text",
+        locationData: message.locationData || null,
+        fileUrl: message.fileUrl || null,
+        duration: message.duration || null,
+      }).returning();
 
       await tx.update(conversations)
         .set({
-          lastMessage: message.content,
+          lastMessage: message.content, // Location messages will have content like "📍 Shared a location"
           updatedAt: new Date()
         })
         .where(eq(conversations.id, message.conversationId));
 
       return msg;
     });
+  }
+
+  async getUnreadMessageCount(userId: number): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)` })
+      .from(messages)
+      .innerJoin(conversations, eq(messages.conversationId, conversations.id))
+      .where(and(
+        eq(messages.read, false),
+        sql`${messages.senderId} != ${userId}`,
+        or(
+          eq(conversations.participant1Id, userId),
+          eq(conversations.participant2Id, userId)
+        )
+      ));
+    return Number(result[0]?.count || 0);
   }
 
   async getAllUsers(): Promise<User[]> {
@@ -246,29 +309,67 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteUser(id: number): Promise<void> {
+    console.log(`[Storage] Starting transaction to delete user ${id}`);
     await db.transaction(async (tx) => {
-      // 1. Delete Provider Profile
-      await tx.delete(providerProfiles).where(eq(providerProfiles.userId, id));
+      // 1. Delete Notifications
+      console.log(`[Storage] Deleting notifications for user ${id}`);
+      await tx.delete(notifications).where(eq(notifications.userId, id));
 
-      // 2. Delete Reviews (Given and Received)
+      // 2. Delete Push Subscriptions
+      console.log(`[Storage] Deleting push subscriptions for user ${id}`);
+      await tx.delete(pushSubscriptions).where(eq(pushSubscriptions.userId, id));
+
+      // 3. Delete Favorites (where user is hunter OR prey)
+      console.log(`[Storage] Deleting favorites for user ${id}`);
+      await tx.delete(favorites).where(or(
+        eq(favorites.userId, id),
+        eq(favorites.providerId, id)
+      ));
+
+      // 4. Delete Reviews (Given and Received)
+      console.log(`[Storage] Deleting reviews for user ${id}`);
       await tx.delete(reviews).where(or(
         eq(reviews.providerId, id),
         eq(reviews.clientId, id)
       ));
 
-      // 3. Delete Messages (Sent)
-      await tx.delete(messages).where(eq(messages.senderId, id));
-
-      // 4. Delete Conversations (Participant)
-      // Note: This will delete conversations for the other user too, which is usually expected behavior 
-      // when a user is hard-deleted.
-      await tx.delete(conversations).where(or(
-        eq(conversations.participant1Id, id),
-        eq(conversations.participant2Id, id)
+      // 5. Delete Bookings (As Client or Provider)
+      console.log(`[Storage] Deleting bookings for user ${id}`);
+      await tx.delete(bookings).where(or(
+        eq(bookings.clientId, id),
+        eq(bookings.providerId, id)
       ));
 
-      // 5. Finally, Delete User
+      // 6. Delete Messages and Conversations
+      console.log(`[Storage] Fetching coversations for user ${id}`);
+      const userConvs = await tx
+        .select({ id: conversations.id })
+        .from(conversations)
+        .where(or(
+          eq(conversations.participant1Id, id),
+          eq(conversations.participant2Id, id)
+        ));
+
+      const convIds = userConvs.map(c => c.id);
+
+      if (convIds.length > 0) {
+        console.log(`[Storage] Deleting messages in conversations: ${convIds.join(',')}`);
+        // Delete ALL messages in these conversations (to avoid FK errors)
+        await tx.delete(messages).where(inArray(messages.conversationId, convIds));
+
+        console.log(`[Storage] Deleting conversations: ${convIds.join(',')}`);
+        // Delete the conversations themselves
+        await tx.delete(conversations).where(inArray(conversations.id, convIds));
+      }
+
+      // 7. Delete Provider Profile
+      console.log(`[Storage] Deleting provider profile for user ${id}`);
+      await tx.delete(providerProfiles).where(eq(providerProfiles.userId, id));
+
+      // 8. Finally, Delete User
+      console.log(`[Storage] Deleting user record for id ${id}`);
       await tx.delete(users).where(eq(users.id, id));
+      console.log(`[Storage] Transaction complete for user ${id}`);
     });
   }
 
@@ -282,6 +383,354 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, id))
       .returning();
     return updatedUser;
+  }
+
+  // === BOOKINGS ===
+
+  async createBooking(booking: InsertBooking): Promise<Booking> {
+    const [newBooking] = await db.insert(bookings).values(booking).returning();
+    return newBooking;
+  }
+
+  async getBookingsForUser(userId: number): Promise<(Booking & { client: User; provider: User })[]> {
+    const allBookings = await db.select()
+      .from(bookings)
+      .innerJoin(users, eq(bookings.clientId, users.id))
+      .where(or(
+        eq(bookings.clientId, userId),
+        eq(bookings.providerId, userId)
+      ))
+      .orderBy(desc(bookings.createdAt));
+
+    // We need both client and provider user data
+    const results: (Booking & { client: User; provider: User })[] = [];
+    for (const row of allBookings) {
+      const clientUser = row.users; // from the join on clientId
+      const providerUser = await this.getUser(row.bookings.providerId);
+      if (providerUser) {
+        results.push({
+          ...row.bookings,
+          client: clientUser,
+          provider: providerUser,
+        });
+      }
+    }
+    return results;
+  }
+
+  async updateBookingStatus(bookingId: number, status: "pending" | "confirmed" | "rejected" | "completed"): Promise<Booking> {
+    const [updated] = await db.update(bookings)
+      .set({ status })
+      .where(eq(bookings.id, bookingId))
+      .returning();
+    return updated;
+  }
+
+  async getProviderStats(providerId: number): Promise<{
+    totalEarnings: number;
+    totalBookings: number;
+    pendingRequests: number;
+    averageRating: number;
+    chartData: { name: string; income: number }[];
+  }> {
+    const allBookings = await db.select().from(bookings).where(eq(bookings.providerId, providerId));
+
+    const totalEarnings = allBookings
+      .filter(b => b.status === 'completed')
+      .reduce((acc, b) => acc + (b.price || 0), 0);
+
+    const totalBookings = allBookings.length;
+    const pendingRequests = allBookings.filter(b => b.status === 'pending').length;
+
+    const providerReviews = await db.select().from(reviews).where(eq(reviews.providerId, providerId));
+    const totalRating = providerReviews.reduce((acc, r) => acc + r.rating, 0);
+    const averageRating = providerReviews.length > 0 ? totalRating / providerReviews.length : 0;
+
+    // Last 7 days chart data
+    const chartData = [];
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dayName = days[d.getDay()];
+
+      const dayIncome = allBookings
+        .filter(b => {
+          if (b.status !== 'completed' || !b.createdAt) return false;
+          const bDate = new Date(b.createdAt);
+          return bDate.toDateString() === d.toDateString();
+        })
+        .reduce((acc, b) => acc + (b.price || 0), 0);
+
+      chartData.push({ name: dayName, income: dayIncome });
+    }
+
+    return {
+      totalEarnings,
+      totalBookings,
+      pendingRequests,
+      averageRating: Number(averageRating.toFixed(1)),
+      chartData
+    };
+  }
+
+  // === NOTIFICATIONS ===
+
+  async createNotification(notification: InsertNotification): Promise<Notification> {
+    const [newNotification] = await db.insert(notifications).values(notification).returning();
+    return newNotification;
+  }
+
+  async getUnreadNotifications(userId: number): Promise<Notification[]> {
+    return db.select().from(notifications)
+      .where(and(
+        eq(notifications.userId, userId),
+        eq(notifications.read, false)
+      ))
+      .orderBy(desc(notifications.createdAt));
+  }
+
+  async markNotificationRead(notificationId: number): Promise<Notification> {
+    const [updated] = await db.update(notifications)
+      .set({ read: true })
+      .where(eq(notifications.id, notificationId))
+      .returning();
+    return updated;
+  }
+
+  // === FAVORITES ===
+
+  async toggleFavorite(userId: number, providerId: number): Promise<{ favorited: boolean }> {
+    const [existing] = await db.select().from(favorites)
+      .where(and(
+        eq(favorites.userId, userId),
+        eq(favorites.providerId, providerId)
+      ));
+
+    if (existing) {
+      await db.delete(favorites).where(eq(favorites.id, existing.id));
+      return { favorited: false };
+    } else {
+      await db.insert(favorites).values({ userId, providerId });
+      return { favorited: true };
+    }
+  }
+
+  async checkFavorite(userId: number, providerId: number): Promise<boolean> {
+    const [existing] = await db.select().from(favorites)
+      .where(and(
+        eq(favorites.userId, userId),
+        eq(favorites.providerId, providerId)
+      ));
+    return !!existing;
+  }
+
+  async getFavorites(userId: number): Promise<(Favorite & { provider: User & { profile: ProviderProfile } })[]> {
+    const results = await db.select({
+      favorite: favorites,
+      user: users,
+      profile: providerProfiles,
+    })
+      .from(favorites)
+      .innerJoin(users, eq(favorites.providerId, users.id))
+      .leftJoin(providerProfiles, eq(users.id, providerProfiles.userId))
+      .where(eq(favorites.userId, userId))
+      .orderBy(desc(favorites.createdAt));
+
+    return results.map((r: any) => ({
+      ...r.favorite,
+      provider: {
+        ...r.user,
+        profile: r.profile!
+      }
+    }));
+  }
+
+  async createReview(review: InsertReview): Promise<Review> {
+    const [newReview] = await db.insert(reviews).values(review).returning();
+    return newReview;
+  }
+
+  async searchProviders(query: string, city?: string, category?: string): Promise<(User & { profile: ProviderProfile | null } & { rating: number, reviewCount: number })[]> {
+    const conditions = [eq(users.role, "provider")];
+
+    if (query) {
+      conditions.push(or(
+        ilike(users.fullName, `%${query}%`),
+        ilike(users.username, `%${query}%`),
+        ilike(providerProfiles.bio, `%${query}%`)
+      )!);
+    }
+
+    if (category && category !== "all") {
+      conditions.push(eq(providerProfiles.serviceCategory, category));
+    }
+
+    const providers = await db.select({
+      user: users,
+      profile: providerProfiles,
+    })
+      .from(users)
+      .leftJoin(providerProfiles, eq(users.id, providerProfiles.userId))
+      .where(and(...conditions));
+
+    const providersWithRatings = await Promise.all(providers.map(async (p) => {
+      const providerReviews = await db.select().from(reviews).where(eq(reviews.providerId, p.user.id));
+      const total = providerReviews.reduce((acc, r) => acc + r.rating, 0);
+      const avg = providerReviews.length > 0 ? total / providerReviews.length : 0;
+
+      return {
+        ...p.user,
+        profile: p.profile,
+        rating: Number(avg.toFixed(1)),
+        reviewCount: providerReviews.length
+      };
+    }));
+
+    return providersWithRatings;
+  }
+
+  async getProvider(id: number): Promise<User & { profile: ProviderProfile | null } & { rating: number, reviewCount: number, reviews: (Review & { client: User })[] } | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    if (!user) return undefined;
+
+    const [profile] = await db.select().from(providerProfiles).where(eq(providerProfiles.userId, id));
+
+    const providerReviews = await db.select({
+      review: reviews,
+      client: users
+    })
+      .from(reviews)
+      .innerJoin(users, eq(reviews.clientId, users.id))
+      .where(eq(reviews.providerId, id))
+      .orderBy(desc(reviews.createdAt));
+
+    const total = providerReviews.reduce((acc, r) => acc + r.review.rating, 0);
+    const avg = providerReviews.length > 0 ? total / providerReviews.length : 0;
+
+    return {
+      ...user,
+      profile: profile || null,
+      rating: Number(avg.toFixed(1)),
+      reviewCount: providerReviews.length,
+      reviews: providerReviews.map(pr => ({ ...pr.review, client: pr.client }))
+    };
+  }
+
+  async deleteMessage(messageId: number, userId: number): Promise<void> {
+    const [msg] = await db.select().from(messages).where(eq(messages.id, messageId));
+    if (!msg) throw new Error("Message not found");
+    if (msg.senderId !== userId) throw new Error("You can only delete your own messages");
+    await db.delete(messages).where(eq(messages.id, messageId));
+  }
+
+  async cleanupOldMessages(): Promise<number> {
+    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const deleted = await db.delete(messages).where(lt(messages.createdAt, oneWeekAgo)).returning();
+    return deleted.length;
+  }
+
+  async upsertPushSubscription(userId: number, subscription: { endpoint: string, p256dh: string, auth: string }): Promise<PushSubscription> {
+    const [existing] = await db.select().from(pushSubscriptions).where(and(
+      eq(pushSubscriptions.userId, userId),
+      eq(pushSubscriptions.endpoint, subscription.endpoint)
+    ));
+
+    if (existing) {
+      const [updated] = await db.update(pushSubscriptions)
+        .set({ ...subscription })
+        .where(eq(pushSubscriptions.id, existing.id))
+        .returning();
+      return updated;
+    }
+
+    const [created] = await db.insert(pushSubscriptions)
+      .values({ userId, ...subscription })
+      .returning();
+    return created;
+  }
+
+  async getPushSubscriptionsForUser(userId: number): Promise<PushSubscription[]> {
+    return db.select().from(pushSubscriptions).where(eq(pushSubscriptions.userId, userId));
+  }
+
+  async deletePushSubscription(id: number): Promise<void> {
+    await db.delete(pushSubscriptions).where(eq(pushSubscriptions.id, id));
+  }
+
+  async markAllNotificationsAsRead(userId: number): Promise<void> {
+    await db.update(notifications)
+      .set({ read: true })
+      .where(and(eq(notifications.userId, userId), eq(notifications.read, false)));
+  }
+
+  // --- TICKETS ---
+  async getTicketsForUser(userId: number): Promise<Ticket[]> {
+    return db.select()
+      .from(tickets)
+      .where(eq(tickets.userId, userId))
+      .orderBy(desc(tickets.createdAt));
+  }
+
+  async getAllTickets(): Promise<(Ticket & { user: User })[]> {
+    const results = await db.select({
+      ticket: tickets,
+      user: users
+    })
+      .from(tickets)
+      .innerJoin(users, eq(tickets.userId, users.id))
+      .orderBy(desc(tickets.createdAt));
+
+    return results.map(r => ({ ...r.ticket, user: r.user }));
+  }
+
+  async getTicket(id: number): Promise<(Ticket & { messages: (TicketMessage & { sender: User })[], user: User }) | undefined> {
+    const ticketResults = await db.select({
+      ticket: tickets,
+      user: users
+    })
+      .from(tickets)
+      .innerJoin(users, eq(tickets.userId, users.id))
+      .where(eq(tickets.id, id));
+
+    if (ticketResults.length === 0) return undefined;
+    const ticketData = ticketResults[0];
+
+    // Get messages with sender info
+    const messagesResults = await db.select({
+      msg: ticketMessages,
+      sender: users
+    })
+      .from(ticketMessages)
+      .innerJoin(users, eq(ticketMessages.senderId, users.id))
+      .where(eq(ticketMessages.ticketId, id))
+      .orderBy(ticketMessages.createdAt);
+
+    return {
+      ...ticketData.ticket,
+      user: ticketData.user,
+      messages: messagesResults.map(m => ({ ...m.msg, sender: m.sender }))
+    };
+  }
+
+  async createTicket(ticket: InsertTicket): Promise<Ticket> {
+    const [created] = await db.insert(tickets).values(ticket).returning();
+    return created;
+  }
+
+  async createTicketMessage(message: InsertTicketMessage): Promise<TicketMessage> {
+    const [created] = await db.insert(ticketMessages).values(message).returning();
+    // Also update ticket updatedAt
+    await db.update(tickets).set({ updatedAt: new Date() }).where(eq(tickets.id, message.ticketId));
+    return created;
+  }
+
+  async updateTicketStatus(id: number, status: "open" | "closed" | "resolved"): Promise<Ticket> {
+    const [updated] = await db.update(tickets)
+      .set({ status, updatedAt: new Date() })
+      .where(eq(tickets.id, id))
+      .returning();
+    return updated;
   }
 }
 

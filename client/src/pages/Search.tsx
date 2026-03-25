@@ -8,7 +8,7 @@ import { Search as SearchIcon, Filter } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { MOROCCAN_CITIES } from "@shared/constants";
-
+import { useLanguage } from "@/hooks/use-language";
 import { MapSearch } from "@/components/MapSearch";
 
 export default function SearchPage() {
@@ -16,6 +16,7 @@ export default function SearchPage() {
   const searchParams = new URLSearchParams(window.location.search);
   const initialQuery = searchParams.get("q") || "";
   const initialCategory = searchParams.get("category") || "";
+  const { t } = useLanguage();
 
   const [query, setQuery] = useState(initialQuery);
   const [category, setCategory] = useState(initialCategory);
@@ -32,13 +33,13 @@ export default function SearchPage() {
     <Layout>
       <div className="bg-secondary/30 border-b">
         <div className="container mx-auto px-4 py-8">
-          <h1 className="text-3xl font-bold font-display mb-6">Find Services</h1>
+          <h1 className="text-3xl font-bold font-display mb-6">{t("findServices")}</h1>
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-background rounded-xl shadow-sm border">
             <div className="relative md:col-span-2">
               <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
-                placeholder="Search by name or keyword..."
+                placeholder={t("searchByName")}
                 className="pl-10 border-0 bg-secondary/50 focus-visible:ring-1"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
@@ -47,23 +48,23 @@ export default function SearchPage() {
 
             <Select value={category} onValueChange={setCategory}>
               <SelectTrigger className="border-0 bg-secondary/50">
-                <SelectValue placeholder="Category" />
+                <SelectValue placeholder={t("category")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                <SelectItem value="Plumbing">Plumbing</SelectItem>
-                <SelectItem value="Electrician">Electrician</SelectItem>
-                <SelectItem value="Cleaning">Cleaning</SelectItem>
-                <SelectItem value="Beauty">Beauty</SelectItem>
+                <SelectItem value="all">{t("allCategories")}</SelectItem>
+                <SelectItem value="Plumbing">{t("plumbing")}</SelectItem>
+                <SelectItem value="Electrician">{t("electrician")}</SelectItem>
+                <SelectItem value="Cleaning">{t("cleaning")}</SelectItem>
+                <SelectItem value="Beauty">{t("beautySpa")}</SelectItem>
               </SelectContent>
             </Select>
 
             <Select value={city} onValueChange={setCity}>
               <SelectTrigger className="border-0 bg-secondary/50">
-                <SelectValue placeholder="City" />
+                <SelectValue placeholder={t("city")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Cities</SelectItem>
+                <SelectItem value="all">{t("allCities")}</SelectItem>
                 {MOROCCAN_CITIES.map((c) => (
                   <SelectItem key={c} value={c}>
                     {c}
@@ -77,13 +78,13 @@ export default function SearchPage() {
                 onClick={() => setView("list")}
                 className={`flex-1 flex items-center justify-center p-1 rounded-sm text-sm font-medium transition-all ${view === "list" ? "bg-white shadow" : "text-muted-foreground hover:bg-white/50"}`}
               >
-                List
+                {t("list")}
               </button>
               <button
                 onClick={() => setView("map")}
                 className={`flex-1 flex items-center justify-center p-1 rounded-sm text-sm font-medium transition-all ${view === "map" ? "bg-white shadow" : "text-muted-foreground hover:bg-white/50"}`}
               >
-                Map
+                {t("map")}
               </button>
             </div>
           </div>
@@ -114,12 +115,14 @@ export default function SearchPage() {
             <div className="w-20 h-20 bg-secondary rounded-full flex items-center justify-center mx-auto mb-6">
               <Filter className="w-10 h-10 text-muted-foreground" />
             </div>
-            <h2 className="text-2xl font-bold mb-2">No results found</h2>
-            <p className="text-muted-foreground">Try adjusting your filters or search terms.</p>
+            <h2 className="text-2xl font-bold mb-2">{t("noResults")}</h2>
+            <p className="text-muted-foreground">{t("tryAdjusting")}</p>
           </div>
         ) : (
           <>
-            <p className="text-sm text-muted-foreground mb-6">Showing {providers?.length} professionals</p>
+            <p className="text-sm text-muted-foreground mb-6">
+              {t("showingProfessionals", { count: providers?.length || 0 })}
+            </p>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {providers?.map((provider) => (
                 <ProviderCard key={provider.id} provider={provider} />

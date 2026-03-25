@@ -21,14 +21,19 @@ const storage = multer.diskStorage({
 
 // File filter (images only)
 const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-    const allowedTypes = /jpeg|jpg|png|gif|webp/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
+    const allowedImageTypes = /jpeg|jpg|png|gif|webp/;
+    const allowedAudioTypes = /mp3|wav|webm|mpeg|ogg/;
+
+    const extname = allowedImageTypes.test(path.extname(file.originalname).toLowerCase()) ||
+        allowedAudioTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedImageTypes.test(file.mimetype) ||
+        allowedAudioTypes.test(file.mimetype) ||
+        file.mimetype.startsWith('audio/');
 
     if (extname && mimetype) {
         return cb(null, true);
     } else {
-        cb(new Error("Only images are allowed"));
+        cb(new Error("Only images and audio files are allowed"));
     }
 };
 

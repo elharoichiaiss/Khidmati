@@ -41,7 +41,7 @@ export default function AuthPage() {
   useEffect(() => {
     if (user) {
       if (user.role === "provider") {
-        setLocation("/profile");
+        setLocation("/provider/dashboard");
       } else if (user.role === "admin") {
         setLocation("/k-admin-portal-secure");
       } else {
@@ -98,10 +98,16 @@ export default function AuthPage() {
     // Anti-Duplication: clear previous errors before new attempt
     loginForm.clearErrors("root");
     try {
-      if (showAdminLogin && adminCode === "admin123") { // Simple safeguard, real security is on server
-        await login(data);
-        setLocation("/k-admin-portal-secure");
-        return;
+      if (showAdminLogin) {
+        if (adminCode === "admin123") {
+          // Store admin access in sessionStorage and redirect
+          sessionStorage.setItem("adminAccess", "true");
+          setLocation("/k-admin-portal-secure");
+          return;
+        } else {
+          loginForm.setError("root", { message: "Invalid admin code" });
+          return;
+        }
       }
       await login(data);
     } catch (e: any) {

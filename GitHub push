@@ -2,3 +2,4 @@ git add .
 git commit -m
 git push
 npm run db:push
+cmd /c "npm run dev"

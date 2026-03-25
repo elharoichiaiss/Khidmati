@@ -32,6 +32,7 @@ export const providerProfiles = pgTable("provider_profiles", {
   latitude: real("latitude"),
   longitude: real("longitude"),
   isAvailable: boolean("is_available").default(true),
+  workingHours: jsonb("working_hours").$type<Record<string, { active: boolean; start: string; end: string }>>(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -57,7 +58,59 @@ export const messages = pgTable("messages", {
   conversationId: integer("conversation_id").notNull().references(() => conversations.id),
   senderId: integer("sender_id").notNull().references(() => users.id),
   content: text("content").notNull(),
+  imageUrl: text("image_url"),
+  type: text("type", { enum: ["text", "image", "location", "voice"] }).default("text").notNull(),
+  locationData: jsonb("location_data").$type<{ lat: number; lng: number }>(), // Nullable
+  fileUrl: text("file_url"), // For voice notes
+  duration: integer("duration"), // Voice note duration in seconds
   read: boolean("read").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const bookings = pgTable("bookings", {
+  id: serial("id").primaryKey(),
+  clientId: integer("client_id").notNull().references(() => users.id),
+  providerId: integer("provider_id").notNull().references(() => users.id),
+  date: timestamp("date").notNull(),
+  status: text("status", { enum: ["pending", "confirmed", "rejected", "completed"] }).notNull().default("pending"),
+  price: integer("price").default(0),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const notifications = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  type: text("type", { enum: ["booking_update", "new_message", "system"] }).notNull(),
+  message: text("message").notNull(),
+  read: boolean("read").notNull().default(false),
+  link: text("link"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const tickets = pgTable("tickets", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  subject: text("subject").notNull(),
+  description: text("description").notNull(),
+  status: text("status", { enum: ["open", "closed", "resolved"] }).notNull().default("open"),
+  priority: text("priority", { enum: ["low", "normal", "high"] }).notNull().default("normal"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const ticketMessages = pgTable("ticket_messages", {
+  id: serial("id").primaryKey(),
+  ticketId: integer("ticket_id").notNull().references(() => tickets.id),
+  senderId: integer("sender_id").notNull().references(() => users.id),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const favorites = pgTable("favorites", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  providerId: integer("provider_id").notNull().references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -65,6 +118,15 @@ export const session = pgTable("session", {
   sid: text("sid").primaryKey(),
   sess: jsonb("sess").notNull(),
   expire: timestamp("expire").notNull(),
+});
+
+export const pushSubscriptions = pgTable("push_subscriptions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  endpoint: text("endpoint").notNull(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 // === RELATIONS ===
@@ -122,12 +184,79 @@ export const messagesRelations = relations(messages, ({ one }) => ({
   }),
 }));
 
+export const bookingsRelations = relations(bookings, ({ one }) => ({
+  client: one(users, {
+    fields: [bookings.clientId],
+    references: [users.id],
+    relationName: "clientBookings",
+  }),
+  provider: one(users, {
+    fields: [bookings.providerId],
+    references: [users.id],
+    relationName: "providerBookings",
+  }),
+}));
+
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+  user: one(users, {
+    fields: [notifications.userId],
+    references: [users.id],
+  }),
+}));
+
+export const favoritesRelations = relations(favorites, ({ one }) => ({
+  user: one(users, {
+    fields: [favorites.userId],
+    references: [users.id],
+    relationName: "userFavorites",
+  }),
+  provider: one(users, {
+    fields: [favorites.providerId],
+    references: [users.id],
+    relationName: "favoritedProviders",
+  }),
+}));
+
+export const ticketsRelations = relations(tickets, ({ one, many }) => ({
+  user: one(users, {
+    fields: [tickets.userId],
+    references: [users.id],
+  }),
+  messages: many(ticketMessages),
+}));
+
+export const ticketMessagesRelations = relations(ticketMessages, ({ one }) => ({
+  ticket: one(tickets, {
+    fields: [ticketMessages.ticketId],
+    references: [tickets.id],
+  }),
+  sender: one(users, {
+    fields: [ticketMessages.senderId],
+    references: [users.id],
+  }),
+}));
+
 // === BASE SCHEMAS ===
 
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
-export const insertProviderProfileSchema = createInsertSchema(providerProfiles).omit({ id: true, createdAt: true });
+
+export const workingHoursSchema = z.record(z.string(), z.object({
+  active: z.boolean(),
+  start: z.string(),
+  end: z.string()
+}));
+
+export const insertProviderProfileSchema = createInsertSchema(providerProfiles, {
+  workingHours: workingHoursSchema.optional()
+}).omit({ id: true, createdAt: true });
 export const insertReviewSchema = createInsertSchema(reviews).omit({ id: true, createdAt: true });
 export const insertMessageSchema = createInsertSchema(messages).omit({ id: true, createdAt: true, read: true });
+export const insertBookingSchema = createInsertSchema(bookings).omit({ id: true, createdAt: true });
+export const insertNotificationSchema = createInsertSchema(notifications).omit({ id: true, createdAt: true, read: true });
+export const insertFavoriteSchema = createInsertSchema(favorites).omit({ id: true, createdAt: true });
+export const insertPushSubscriptionSchema = createInsertSchema(pushSubscriptions).omit({ id: true, createdAt: true });
+export const insertTicketSchema = createInsertSchema(tickets).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertTicketMessageSchema = createInsertSchema(ticketMessages).omit({ id: true, createdAt: true });
 
 // === EXPLICIT API CONTRACT TYPES ===
 
@@ -136,11 +265,23 @@ export type ProviderProfile = typeof providerProfiles.$inferSelect;
 export type Review = typeof reviews.$inferSelect;
 export type Conversation = typeof conversations.$inferSelect;
 export type Message = typeof messages.$inferSelect;
+export type Booking = typeof bookings.$inferSelect;
+export type Notification = typeof notifications.$inferSelect;
+export type Favorite = typeof favorites.$inferSelect;
+export type PushSubscription = typeof pushSubscriptions.$inferSelect;
+export type Ticket = typeof tickets.$inferSelect;
+export type TicketMessage = typeof ticketMessages.$inferSelect;
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type InsertProviderProfile = z.infer<typeof insertProviderProfileSchema>;
 export type InsertReview = z.infer<typeof insertReviewSchema>;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
+export type InsertBooking = z.infer<typeof insertBookingSchema>;
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type InsertFavorite = z.infer<typeof insertFavoriteSchema>;
+export type InsertPushSubscription = z.infer<typeof insertPushSubscriptionSchema>;
+export type InsertTicket = z.infer<typeof insertTicketSchema>;
+export type InsertTicketMessage = z.infer<typeof insertTicketMessageSchema>;
 
 // Request types
 export type LoginRequest = {

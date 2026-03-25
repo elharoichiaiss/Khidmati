@@ -11,7 +11,22 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge"; // Ensure Badge is available or use a div
 import { useForm } from "react-hook-form";
 import { useEffect, useState } from "react";
-import { Loader2, UploadCloud, X, MapPin, Briefcase, User as UserIcon, Edit2, Check, ArrowLeft } from "lucide-react";
+import {
+  Loader2,
+  UploadCloud,
+  X,
+  MapPin,
+  Briefcase,
+  User as UserIcon,
+  Edit2,
+  Check,
+  ArrowLeft,
+  Bell,
+  LayoutDashboard
+} from "lucide-react";
+import { Link } from "wouter";
+import { usePush } from "@/hooks/use-push";
+import { useLanguage } from "@/hooks/use-language";
 import { LocationPicker } from "@/components/LocationPicker";
 import { MapContainer, TileLayer, Marker } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
@@ -31,6 +46,8 @@ L.Marker.prototype.options.icon = DefaultIcon;
 
 export default function Profile() {
   const { user, isLoading } = useAuth();
+  const { t, language } = useLanguage();
+  const { subscribe, isSubscribing } = usePush();
   const updateProfile = useUpdateProfile();
   const [isEditing, setIsEditing] = useState(false);
 
@@ -42,6 +59,15 @@ export default function Profile() {
       portfolioImages: [] as string[],
       latitude: null as number | null,
       longitude: null as number | null,
+      workingHours: {
+        monday: { active: true, start: "09:00", end: "17:00" },
+        tuesday: { active: true, start: "09:00", end: "17:00" },
+        wednesday: { active: true, start: "09:00", end: "17:00" },
+        thursday: { active: true, start: "09:00", end: "17:00" },
+        friday: { active: true, start: "09:00", end: "17:00" },
+        saturday: { active: false, start: "09:00", end: "17:00" },
+        sunday: { active: false, start: "09:00", end: "17:00" },
+      }
     }
   });
 
@@ -55,6 +81,15 @@ export default function Profile() {
         portfolioImages: user.providerProfile.portfolioImages || [],
         latitude: user.providerProfile.latitude,
         longitude: user.providerProfile.longitude,
+        workingHours: (user.providerProfile.workingHours as any) || {
+          monday: { active: true, start: "09:00", end: "17:00" },
+          tuesday: { active: true, start: "09:00", end: "17:00" },
+          wednesday: { active: true, start: "09:00", end: "17:00" },
+          thursday: { active: true, start: "09:00", end: "17:00" },
+          friday: { active: true, start: "09:00", end: "17:00" },
+          saturday: { active: false, start: "09:00", end: "17:00" },
+          sunday: { active: false, start: "09:00", end: "17:00" },
+        },
       });
     }
   }, [user]);
@@ -93,13 +128,102 @@ export default function Profile() {
   if (user.role !== "provider") {
     return (
       <Layout>
-        <div className="container mx-auto px-4 py-12 text-center">
-          <h1 className="text-2xl font-bold mb-4">Client Profile</h1>
-          <p className="text-muted-foreground">You are logged in as a client. Client profile editing is not supported in this MVP.</p>
+        <div className="container mx-auto px-4 py-8 max-w-2xl">
+          <div className="text-center mb-8">
+            <Avatar className="w-24 h-24 mx-auto mb-4 border-4 border-white shadow-lg">
+              <AvatarFallback className="text-2xl bg-primary text-primary-foreground">{user.fullName[0]}</AvatarFallback>
+            </Avatar>
+            <h1 className="text-3xl font-bold font-display">{user.fullName}</h1>
+            <Badge variant="secondary" className="mt-2">{t("client") || "Client"}</Badge>
+          </div>
+
+          <Card className="shadow-md">
+            <CardHeader className="border-b bg-muted/30">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Bell className="w-5 h-5 text-primary" /> {t("notifications") || "Notifications"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h3 className="font-semibold">{t("pushNotifications") || "Push Notifications"}</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {language === 'ar'
+                      ? 'احصل على إشعارات فورية عند وصول رسائل جديدة أو تحديثات في الخدمة.'
+                      : 'Get instant alerts for new messages and service updates.'}
+                  </p>
+                </div>
+                <Button
+                  onClick={subscribe}
+                  disabled={isSubscribing}
+                  className="shrink-0"
+                >
+                  {isSubscribing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bell className="w-4 h-4 mr-2" />}
+                  {language === 'ar' ? 'تفعيل' : 'Enable'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </Layout>
     );
   }
+
+  // Helper for image URLs
+  const getImageUrl = (path: string | null | undefined) => {
+    if (!path) return undefined;
+    if (path.startsWith('http')) return path;
+    if (path.startsWith('/')) return path;
+    return `/uploads/${path}`;
+  };
+
+  const LocalImageUpload = ({ onUpload, label, className }: { onUpload: (url: string) => void, label: React.ReactNode, className?: string }) => {
+    const [uploading, setUploading] = useState(false);
+
+    const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      setUploading(true);
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const res = await fetch('/api/uploads', {
+          method: 'POST',
+          body: formData,
+        });
+        const data = await res.json();
+        if (data.url) {
+          onUpload(data.url);
+        }
+      } catch (err) {
+        console.error("Upload failed", err);
+      } finally {
+        setUploading(false);
+      }
+    };
+
+    return (
+      <div className={className}>
+        <input
+          type="file"
+          accept="image/*"
+          className="hidden"
+          id={`file-${label}`}
+          onChange={handleFile}
+        />
+        <label htmlFor={`file-${label}`}>
+          <Button type="button" variant="outline" className="cursor-pointer" disabled={uploading} asChild>
+            <span>
+              {uploading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <UploadCloud className="w-4 h-4 mr-2" />}
+              {label}
+            </span>
+          </Button>
+        </label>
+      </div>
+    );
+  };
 
   const currentProfileImage = form.watch("profileImage");
   const currentPortfolio = form.watch("portfolioImages");
@@ -111,14 +235,20 @@ export default function Profile() {
         <div className="container mx-auto px-4 py-8 max-w-4xl">
           {/* Header / Hero */}
           <Card className="mb-8 border-none shadow-lg overflow-hidden relative bg-gradient-to-r from-primary/10 to-secondary/10">
-            <div className="absolute top-0 right-0 p-4">
+            <div className="absolute top-0 right-0 p-4 flex gap-2">
+              <Link href="/provider/dashboard">
+                <Button variant="outline" className="gap-2 shadow-sm border-emerald-200 text-emerald-700 hover:bg-emerald-50">
+                  <LayoutDashboard className="w-4 h-4" />
+                  {language === 'ar' ? 'لوحة الأداء' : 'Performance'}
+                </Button>
+              </Link>
               <Button onClick={() => setIsEditing(true)} variant="secondary" className="gap-2 shadow-sm">
                 <Edit2 className="w-4 h-4" /> Edit Profile
               </Button>
             </div>
             <CardContent className="pt-12 pb-8 flex flex-col md:flex-row items-center gap-8">
               <Avatar className="w-32 h-32 border-4 border-white shadow-xl">
-                <AvatarImage src={user.providerProfile?.profileImage ? `/objects/${user.providerProfile.profileImage}` : undefined} />
+                <AvatarImage src={getImageUrl(user.providerProfile?.profileImage)} />
                 <AvatarFallback className="text-4xl bg-primary text-primary-foreground">{user.fullName[0]}</AvatarFallback>
               </Avatar>
               <div className="text-center md:text-left space-y-2">
@@ -161,6 +291,28 @@ export default function Profile() {
                 </CardContent>
               </Card>
 
+              <Card className="shadow-md border-primary/20">
+                <CardHeader className="bg-primary/5 border-b">
+                  <CardTitle className="text-sm font-bold flex items-center gap-2">
+                    <Bell className="w-4 h-4 text-primary" /> Notification Settings
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-4">
+                  <p className="text-xs text-muted-foreground mb-4">
+                    Receive push notifications for new bookings and messages.
+                  </p>
+                  <Button
+                    onClick={subscribe}
+                    disabled={isSubscribing}
+                    className="w-full h-9 text-sm"
+                    variant="outline"
+                  >
+                    {isSubscribing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bell className="w-4 h-4 mr-2 text-primary" />}
+                    {language === 'ar' ? 'تفعيل الإشعارات' : 'Enable Notifications'}
+                  </Button>
+                </CardContent>
+              </Card>
+
               <Card className="shadow-md">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2"><MapPin className="w-5 h-5 text-primary" /> Location</CardTitle>
@@ -198,7 +350,7 @@ export default function Profile() {
                     <div className="grid grid-cols-2 gap-4">
                       {user.providerProfile.portfolioImages.map((img, i) => (
                         <div key={i} className="aspect-square rounded-lg overflow-hidden border shadow-sm hover:shadow-md transition-shadow">
-                          <img src={`/objects/${img}`} alt="Portfolio" className="w-full h-full object-cover" />
+                          <img src={getImageUrl(img)} alt="Portfolio" className="w-full h-full object-cover" />
                         </div>
                       ))}
                     </div>
@@ -235,27 +387,14 @@ export default function Profile() {
             </CardHeader>
             <CardContent className="flex items-center gap-6">
               <Avatar className="w-24 h-24 border">
-                <AvatarImage src={currentProfileImage ? `/objects/${currentProfileImage}` : undefined} />
+                <AvatarImage src={getImageUrl(currentProfileImage)} />
                 <AvatarFallback className="text-2xl">{user.fullName[0]}</AvatarFallback>
               </Avatar>
 
-              <ObjectUploader
-                onGetUploadParameters={async (file) => await getUploadParams(file.data as File)}
-                onComplete={(result) => {
-                  const success = result.successful[0];
-                  if (success) {
-                    // In a real app, update state based on backend response of ID
-                    // Here relying on simplistic hook usage
-                    // For MVP let's assume reload or just toast
-                  }
-                }}
-              >
-                Change Photo
-              </ObjectUploader>
-
-              <div className="text-xs text-muted-foreground">
-                (Uploads handled via modal)
-              </div>
+              <LocalImageUpload
+                label="Change Photo"
+                onUpload={(url) => form.setValue("profileImage", url, { shouldDirty: true })}
+              />
             </CardContent>
           </Card>
 
@@ -284,6 +423,58 @@ export default function Profile() {
             </CardContent>
           </Card>
 
+          {/* Working Hours Section */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Working Hours</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4">
+                {["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"].map((day) => {
+                  const dayState = (form.watch(`workingHours.${day}` as any) as any) || { active: true, start: "09:00", "end": "17:00" };
+
+                  return (
+                    <div key={day} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 border rounded-lg gap-3 sm:gap-0">
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2 w-32">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                            checked={dayState.active}
+                            onChange={(e) => {
+                              form.setValue(`workingHours.${day}` as any, { ...dayState, active: e.target.checked }, { shouldDirty: true });
+                            }}
+                          />
+                          <span className="capitalize font-medium">{day}</span>
+                        </div>
+                      </div>
+
+                      {dayState.active ? (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="time"
+                            value={dayState.start}
+                            onChange={(e) => form.setValue(`workingHours.${day}.start` as any, e.target.value, { shouldDirty: true })}
+                            className="w-32"
+                          />
+                          <span className="text-muted-foreground">-</span>
+                          <Input
+                            type="time"
+                            value={dayState.end}
+                            onChange={(e) => form.setValue(`workingHours.${day}.end` as any, e.target.value, { shouldDirty: true })}
+                            className="w-32"
+                          />
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground text-sm italic px-4">Closed</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Location Section */}
           <Card>
             <CardHeader>
@@ -308,11 +499,11 @@ export default function Profile() {
               <CardTitle>Portfolio</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-3 gap-4 mb-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
                 {currentPortfolio?.map((img, i) => (
                   <div key={i} className="relative group">
                     <img
-                      src={`/objects/${img}`}
+                      src={getImageUrl(img)}
                       className="w-full h-32 object-cover rounded-lg border"
                       alt="Portfolio"
                     />
@@ -321,7 +512,7 @@ export default function Profile() {
                       onClick={() => {
                         const newPortfolio = [...currentPortfolio];
                         newPortfolio.splice(i, 1);
-                        form.setValue("portfolioImages", newPortfolio);
+                        form.setValue("portfolioImages", newPortfolio, { shouldDirty: true });
                       }}
                       className="absolute top-1 right-1 bg-destructive text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
                     >
@@ -330,16 +521,14 @@ export default function Profile() {
                   </div>
                 ))}
 
-                <ObjectUploader
-                  onGetUploadParameters={async (file) => await getUploadParams(file.data as File)}
-                  onComplete={(result) => {
-                    // refresh or handle
+                <LocalImageUpload
+                  label="Add Image"
+                  onUpload={(url) => {
+                    const current = form.getValues("portfolioImages") || [];
+                    form.setValue("portfolioImages", [...current, url], { shouldDirty: true });
                   }}
-                  buttonClassName="h-32 w-full border-2 border-dashed border-muted-foreground/25 bg-secondary/10 hover:bg-secondary/20 flex flex-col items-center justify-center text-muted-foreground gap-2"
-                >
-                  <UploadCloud className="w-8 h-8" />
-                  <span>Add Image</span>
-                </ObjectUploader>
+                  className="h-32 w-full border-2 border-dashed border-muted-foreground/25 bg-secondary/10 hover:bg-secondary/20 flex flex-col items-center justify-center text-muted-foreground gap-2 rounded-lg cursor-pointer"
+                />
               </div>
             </CardContent>
           </Card>

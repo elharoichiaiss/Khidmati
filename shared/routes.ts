@@ -177,6 +177,23 @@ export const api = {
         401: errorSchemas.unauthorized,
       },
     },
+  },
+  push: {
+    subscribe: {
+      method: 'POST' as const,
+      path: '/api/push/subscribe',
+      input: z.object({
+        endpoint: z.string(),
+        keys: z.object({
+          p256dh: z.string(),
+          auth: z.string(),
+        }),
+      }),
+      responses: {
+        201: z.object({ success: z.boolean() }),
+        401: errorSchemas.unauthorized,
+      },
+    }
   }
 };
 

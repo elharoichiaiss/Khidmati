@@ -10,6 +10,7 @@ export function useConversations() {
       if (!res.ok) throw new Error("Failed to fetch conversations");
       return api.conversations.list.responses[200].parse(await res.json());
     },
+    refetchInterval: 10000, // Auto-poll every 10s for new conversations
   });
 }
 
@@ -50,19 +51,69 @@ export function useStartConversation() {
 export function useSendMessage() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ conversationId, content }: { conversationId: number, content: string }) => {
+    mutationFn: async ({ conversationId, content, image, type, locationData, fileUrl, duration }: {
+      conversationId: number;
+      content?: string;
+      image?: File;
+      type?: "text" | "image" | "location" | "voice";
+      locationData?: { lat: number; lng: number };
+      fileUrl?: string;
+      duration?: number;
+    }) => {
       const url = buildUrl(api.messages.create.path, { id: conversationId });
-      const res = await fetch(url, {
-        method: api.messages.create.method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content }),
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed to send message");
-      return api.messages.create.responses[201].parse(await res.json());
+
+      if (image) {
+        // Send as FormData for image upload
+        const formData = new FormData();
+        formData.append("content", content || "");
+        formData.append("image", image);
+        // type is implicitly 'image' or handled by backend when file is present, 
+        // but we can pass it if we want to be explicit, though backend logic takes precedence for files.
+        formData.append("type", "image");
+
+        const res = await fetch(url, {
+          method: "POST",
+          body: formData,
+          credentials: "include",
+        });
+        if (!res.ok) throw new Error("Failed to send message");
+        return res.json();
+      } else {
+        // Send as JSON for text, location, or voice
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content, type, locationData, fileUrl, duration }),
+          credentials: "include",
+        });
+        if (!res.ok) throw new Error("Failed to send message");
+        return res.json();
+      }
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: [api.conversations.get.path, variables.conversationId] });
+      queryClient.invalidateQueries({ queryKey: [api.conversations.list.path] });
+    },
+  });
+}
+
+export function useDeleteMessage() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ messageId }: { messageId: number }) => {
+      const res = await fetch(`/api/messages/${messageId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Failed to delete message");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      // Invalidate all conversation queries to refresh
+      queryClient.invalidateQueries({ queryKey: [api.conversations.get.path] });
       queryClient.invalidateQueries({ queryKey: [api.conversations.list.path] });
     },
   });

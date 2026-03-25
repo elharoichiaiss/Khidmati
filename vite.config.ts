@@ -30,6 +30,13 @@ export default defineConfig({
           },
         ],
       },
+      devOptions: {
+        enabled: true,
+        type: 'module'
+      },
+      workbox: {
+        importScripts: ['/custom-sw.js']
+      }
     }),
     ...(process.env.NODE_ENV !== "production" &&
       process.env.REPL_ID !== undefined

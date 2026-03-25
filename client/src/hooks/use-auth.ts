@@ -40,7 +40,7 @@ export function useAuth() {
       if (data.role === "admin") {
         setLocation("/k-admin-portal-secure");
       } else if (data.role === "provider") {
-        setLocation("/profile");
+        setLocation("/provider/dashboard");
       } else {
         setLocation("/");
       }
