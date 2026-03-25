@@ -72,7 +72,7 @@ export const VoiceBubble = ({ fileUrl, duration }: VoiceBubbleProps) => {
     });
 
     return (
-        <div className="flex items-center gap-3 p-2 min-w-[250px] bg-red-100/50 dark:bg-slate-800 rounded-2xl border border-red-100 dark:border-slate-700">
+        <div className="flex items-center gap-2 p-2 w-full max-w-[230px] sm:max-w-xs overflow-hidden bg-red-100/50 dark:bg-slate-800 rounded-2xl border border-red-100 dark:border-slate-700">
             <audio ref={audioRef} src={fileUrl} className="hidden" />
 
             <button
