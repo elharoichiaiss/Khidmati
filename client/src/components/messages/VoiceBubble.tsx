@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Play, Pause } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 
 interface VoiceBubbleProps {
     fileUrl: string;
@@ -27,7 +28,10 @@ export const VoiceBubble = ({ fileUrl, duration }: VoiceBubbleProps) => {
 
         const updateProgress = () => {
             setCurrentTime(audio.currentTime);
-            setProgress((audio.currentTime / audio.duration) * 100);
+            const audioDuration = (Number.isFinite(audio.duration) && audio.duration > 0) 
+              ? audio.duration 
+              : duration || 1; // Fallback to prop duration or 1 to avoid NaN/Infinity
+            setProgress((audio.currentTime / audioDuration) * 100);
         };
 
         const handleEnded = () => {
@@ -49,10 +53,20 @@ export const VoiceBubble = ({ fileUrl, duration }: VoiceBubbleProps) => {
         if (audioRef.current) {
             if (isPlaying) {
                 audioRef.current.pause();
+                setIsPlaying(false);
             } else {
-                audioRef.current.play();
+                audioRef.current.play().then(() => {
+                    setIsPlaying(true);
+                }).catch(err => {
+                    console.error("Audio playback error:", err);
+                    setIsPlaying(false);
+                    toast({
+                        title: "لا يمكن تشغيل الصوت",
+                        description: "عذراً، قد يكون الملف مفقوداً أو غير مدعوم.",
+                        variant: "destructive"
+                    });
+                });
             }
-            setIsPlaying(!isPlaying);
         }
     };
 

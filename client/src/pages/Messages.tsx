@@ -1,6 +1,6 @@
 import { Layout } from "@/components/Layout";
 import { LocationPickerDialog } from "@/components/LocationPickerDialog";
-import { useConversations, useConversation, useSendMessage, useDeleteMessage } from "@/hooks/use-messages";
+import { useConversations, useConversation, useSendMessage, useDeleteMessage, useMarkConversationRead } from "@/hooks/use-messages";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
 import { useLocation, Link } from "wouter";
@@ -161,6 +161,17 @@ export default function Messages() {
   const { data: activeConversation } = useConversation(activeId || 0);
   const sendMessage = useSendMessage();
   const deleteMessage = useDeleteMessage();
+  const markRead = useMarkConversationRead();
+
+  // Mark messages as read when viewing a conversation
+  useEffect(() => {
+    if (activeId && activeConversation?.messages && user?.id) {
+      const hasUnread = activeConversation.messages.some(m => !m.read && m.senderId !== user.id);
+      if (hasUnread && !markRead.isPending) {
+        markRead.mutate(activeId);
+      }
+    }
+  }, [activeId, activeConversation?.messages, user?.id]);
 
   const [msgContent, setMsgContent] = useState("");
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
@@ -429,17 +440,28 @@ export default function Messages() {
                             {conv.otherUser.fullName[0].toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between">
-                            <span className="font-bold truncate text-sm">{conv.otherUser.fullName}</span>
+                        <div className="flex-1 min-w-0 flex justify-between items-center gap-2">
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-bold truncate text-sm">{conv.otherUser.fullName}</h4>
+                            <p className={cn(
+                              "text-xs truncate mt-0.5",
+                              conv.unreadCount > 0 ? "font-bold text-foreground" : "text-muted-foreground"
+                            )}>
+                              {conv.lastMessage || "Start chatting..."}
+                            </p>
+                          </div>
+                          
+                          <div className="flex flex-col items-end gap-1 shrink-0">
                             {conv.updatedAt && (
-                              <span className="text-[10px] text-muted-foreground ml-2 shrink-0">
+                              <span className="text-[10px] text-muted-foreground">
                                 {timeAgo(conv.updatedAt)}
                               </span>
                             )}
-                          </div>
-                          <div className="text-xs text-muted-foreground truncate mt-0.5">
-                            {conv.lastMessage || "Start chatting..."}
+                            {conv.unreadCount > 0 && (
+                              <span className="flex items-center justify-center min-w-[20px] h-5 px-1 text-[10px] font-bold text-white bg-primary rounded-full animate-in zoom-in">
+                                {conv.unreadCount > 99 ? "99+" : conv.unreadCount}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>

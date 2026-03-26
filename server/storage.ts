@@ -28,11 +28,12 @@ export interface IStorage {
   createReview(review: InsertReview): Promise<Review>;
 
   // Messaging
-  getConversations(userId: number): Promise<(Conversation & { otherUser: User })[]>;
+  getConversations(userId: number): Promise<(Conversation & { otherUser: User; unreadCount: number })[]>;
   getConversation(id: number): Promise<(Conversation & { messages: Message[] }) | undefined>;
   createConversation(userId1: number, userId2: number): Promise<Conversation>;
   createMessage(message: InsertMessage): Promise<Message>;
   getUnreadMessageCount(userId: number): Promise<number>;
+  markConversationAsRead(conversationId: number, userId: number): Promise<void>;
 
   // Admin
   getAllUsers(): Promise<User[]>;
@@ -200,26 +201,7 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
-  async getConversations(userId: number): Promise<(Conversation & { otherUser: User })[]> {
-    const results = await db.select()
-      .from(conversations)
-      .innerJoin(users, sql`
-        CASE 
-          WHEN ${conversations.participant1Id} = ${userId} THEN ${conversations.participant2Id} = ${users.id}
-          ELSE ${conversations.participant1Id} = ${users.id}
-        END
-      `)
-      .where(or(
-        eq(conversations.participant1Id, userId),
-        eq(conversations.participant2Id, userId)
-      ))
-      .orderBy(desc(conversations.updatedAt));
-
-    // Drizzle join logic might need adjustment for the "otherUser" selection
-    // Simplification: Select all conversations, then map other user
-    // A raw query or multiple queries might be safer, but let's try strict join
-
-    // Alternative approach:
+  async getConversations(userId: number): Promise<(Conversation & { otherUser: User; unreadCount: number })[]> {
     const myConversations = await db.query.conversations.findMany({
       where: or(
         eq(conversations.participant1Id, userId),
@@ -228,16 +210,26 @@ export class DatabaseStorage implements IStorage {
       with: {
         participant1: true,
         participant2: true,
+        messages: {
+          where: (messages, { and, eq, ne }) => and(
+            eq(messages.read, false),
+            ne(messages.senderId, userId)
+          )
+        }
       },
       orderBy: desc(conversations.updatedAt),
     });
 
     return myConversations.map(c => {
       const otherUser = c.participant1Id === userId ? c.participant2 : c.participant1;
+      const unreadCount = c.messages ? c.messages.length : 0;
+      // We don't want to leak all messages in the list array if we only need the count.
+      const { messages, participant1, participant2, ...convData } = c;
       return {
-        ...c,
-        otherUser
-      };
+        ...convData,
+        otherUser,
+        unreadCount
+      } as Conversation & { otherUser: User; unreadCount: number };
     });
   }
 
@@ -304,6 +296,15 @@ export class DatabaseStorage implements IStorage {
         )
       ));
     return Number(result[0]?.count || 0);
+  }
+
+  async markConversationAsRead(conversationId: number, userId: number): Promise<void> {
+    await db.update(messages)
+      .set({ read: true })
+      .where(and(
+        eq(messages.conversationId, conversationId),
+        sql`${messages.senderId} != ${userId}`
+      ));
   }
 
   async getAllUsers(): Promise<User[]> {

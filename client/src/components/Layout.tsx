@@ -46,6 +46,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/notifications"] }),
   });
 
+  const markAllRead = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/notifications/read-all`, { method: "PATCH" });
+      if (!res.ok) throw new Error("Failed to mark all as read");
+      return res.json();
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/notifications"] }),
+  });
+
   const unreadCount = notifications.length;
 
   // Messages
@@ -155,8 +164,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent align="end" className="w-80 p-0 rounded-xl shadow-xl border-0">
-                      <div className="px-4 py-3 border-b bg-muted/30">
+                      <div className="px-4 py-3 border-b bg-muted/30 flex justify-between items-center">
                         <h3 className="font-bold text-sm">{t("notifications")}</h3>
+                        {unreadCount > 0 && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={(e) => { e.stopPropagation(); markAllRead.mutate(); }} 
+                            className="h-auto p-0 text-xs text-primary hover:bg-transparent"
+                            disabled={markAllRead.isPending}
+                          >
+                            {language === 'ar' ? 'تحديد الكل كمقروء' : 'Mark all as read'}
+                          </Button>
+                        )}
                       </div>
                       <div className="max-h-72 overflow-y-auto">
                         {notifications.length === 0 ? (
@@ -282,6 +302,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   <Link href="/messages">
                     <Button variant="ghost" size="icon" className="relative w-8 h-8">
                       <MessageSquare className="w-5 h-5 text-muted-foreground" />
+                      {unreadMessagesCount > 0 && (
+                        <span className="absolute -top-0.5 -right-0.5 flex h-3 min-w-[12px] items-center justify-center rounded-full bg-blue-500 px-0.5 text-[8px] font-bold text-white animate-pulse">
+                          {unreadMessagesCount > 9 ? "9+" : unreadMessagesCount}
+                        </span>
+                      )}
                     </Button>
                   </Link>
 
@@ -303,8 +328,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent align="end" className="w-80 p-0 rounded-xl shadow-xl border-0">
-                      <div className="px-4 py-3 border-b bg-muted/30">
+                      <div className="px-4 py-3 border-b bg-muted/30 flex justify-between items-center">
                         <h3 className="font-bold text-sm">{t("notifications")}</h3>
+                        {unreadCount > 0 && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={(e) => { e.stopPropagation(); markAllRead.mutate(); }} 
+                            className="h-auto p-0 text-xs text-primary hover:bg-transparent"
+                            disabled={markAllRead.isPending}
+                          >
+                            {language === 'ar' ? 'تحديد الكل كمقروء' : 'Mark all as read'}
+                          </Button>
+                        )}
                       </div>
                       <div className="max-h-72 overflow-y-auto">
                         {notifications.length === 0 ? (
@@ -330,6 +366,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
                             </button>
                           ))
                         )}
+                      </div>
+                      <div className="p-2 border-t text-center bg-muted/10">
+                        <Link href="/notifications">
+                          <Button variant="link" className="text-sm h-auto p-0 font-medium text-primary">
+                            {language === 'ar' ? 'عرض السجل الكامل' : 'View full history'}
+                          </Button>
+                        </Link>
                       </div>
                     </PopoverContent>
                   </Popover>

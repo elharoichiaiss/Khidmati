@@ -63,19 +63,31 @@ export function useSendMessage() {
       const url = buildUrl(api.messages.create.path, { id: conversationId });
 
       if (image) {
-        // Send as FormData for image upload
-        const formData = new FormData();
-        formData.append("content", content || "");
-        formData.append("image", image);
-        // type is implicitly 'image' or handled by backend when file is present, 
-        // but we can pass it if we want to be explicit, though backend logic takes precedence for files.
-        formData.append("type", "image");
+        // Upload image first to get a permanent URL
+        const uploadFormData = new FormData();
+        uploadFormData.append("file", image);
 
-        const res = await fetch(url, {
+        const uploadRes = await fetch('/api/uploads', {
           method: "POST",
-          body: formData,
+          body: uploadFormData,
           credentials: "include",
         });
+
+        if (!uploadRes.ok) throw new Error("Failed to upload image");
+        const uploadData = await uploadRes.json();
+        
+        // Then send the message with the returned URL
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            content: content || "", 
+            type: "image",
+            imageUrl: uploadData.url 
+          }),
+          credentials: "include",
+        });
+        
         if (!res.ok) throw new Error("Failed to send message");
         return res.json();
       } else {
@@ -115,6 +127,24 @@ export function useDeleteMessage() {
       // Invalidate all conversation queries to refresh
       queryClient.invalidateQueries({ queryKey: [api.conversations.get.path] });
       queryClient.invalidateQueries({ queryKey: [api.conversations.list.path] });
+    },
+  });
+}
+
+export function useMarkConversationRead() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (conversationId: number) => {
+      const res = await fetch(`/api/conversations/${conversationId}/read`, {
+        method: "PATCH",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to mark read");
+      return res.json();
+    },
+    onSuccess: (_, conversationId) => {
+      queryClient.invalidateQueries({ queryKey: [api.conversations.get.path, conversationId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/messages/unread-count"] });
     },
   });
 }

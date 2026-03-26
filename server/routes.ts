@@ -277,6 +277,20 @@ export async function registerRoutes(
     res.json(conversation);
   });
 
+  app.patch('/api/conversations/:id/read', async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const user = req.user as any;
+    const conversationId = Number(req.params.id);
+
+    try {
+      await storage.markConversationAsRead(conversationId, user.id);
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Error marking conversation as read:", err);
+      res.status(500).json({ message: "Failed to mark read" });
+    }
+  });
+
   app.post('/api/upload/voice', upload.single('voice'), (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     if (!req.file) return res.status(400).json({ message: "No voice file uploaded" });
@@ -350,12 +364,8 @@ export async function registerRoutes(
           else if (type === 'location') notifMessage = `📍 Location shared by ${user.fullName || user.username}`;
           else if (imageUrl) notifMessage = `📷 New photo from ${user.fullName || user.username}`;
 
-          await storage.createNotification({
-            userId: recipientId,
-            type: "new_message",
-            message: notifMessage,
-            link: `/messages?id=${conversationId}`,
-          });
+          // We only send Web Push Notifications for messages now,
+          // keeping the in-app Notifications tab exclusively for bookings/reviews/admin.
 
           // Send Web Push Notification
           await sendPushToUser(
