@@ -34,7 +34,7 @@ const registerSchema = insertUserSchema.extend({
 
 export default function AuthPage() {
   const [activeTab, setActiveTab] = useState("login");
-  const { user, login, register, isLoggingIn, isRegistering } = useAuth();
+  const { user, login, register, isLoggingIn, isRegistering, language } = useAuth();
   const [location, setLocation] = useLocation();
 
   // Redirect if already logged in
