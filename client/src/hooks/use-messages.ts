@@ -65,9 +65,9 @@ export function useSendMessage() {
       if (image) {
         // Upload image first to get a permanent URL
         const uploadFormData = new FormData();
-        uploadFormData.append("file", image);
+        uploadFormData.append("image", image); // Field name expected by backend is "image"
 
-        const uploadRes = await fetch('/api/uploads', {
+        const uploadRes = await fetch('/api/upload/image', {
           method: "POST",
           body: uploadFormData,
           credentials: "include",

@@ -17,8 +17,8 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { InstallAppButton } from "@/components/InstallAppButton";
-import { AdminReturnButton } from "@/components/AdminReturnButton";
-import { ProviderReturnButton } from "@/components/ProviderReturnButton";
+import { DashboardEdgeTab } from "@/components/DashboardEdgeTab";
+import { useAdminAuth } from "@/hooks/use-admin-auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Notification } from "@shared/schema";
 
@@ -28,6 +28,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [location, setLocation] = useLocation();
   const queryClient = useQueryClient();
+  const { admin } = useAdminAuth();
+
+  const isAdmin = (user?.role === "admin") || (!!admin);
+  const isProvider = user?.role === "provider";
 
   const isMessagesPage = location === '/messages';
 
@@ -137,11 +141,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
               {/* Auth Buttons */}
               {user ? (
                 <div className="flex items-center gap-2">
-                  {user.role === "provider" && (
-                    <Link href="/provider/dashboard">
-                      <Button variant="ghost" size="sm" className="hidden md:flex gap-2 text-muted-foreground hover:text-emerald-600 transition-colors">
-                        <LayoutDashboard className="w-4 h-4" />
-                        <span className="font-medium">{language === 'ar' ? 'لوحة التحكم' : 'Dashboard'}</span>
+                  {/* Dashboard Link for Admins or Providers */}
+                  {(isAdmin || isProvider) && (
+                    <Link href={isAdmin ? "/k-admin-portal-secure" : "/provider/dashboard"}>
+                      <Button variant="ghost" size="sm" className="hidden md:flex gap-2 text-muted-foreground hover:text-primary transition-colors">
+                        <LayoutDashboard className="w-4 h-4 text-emerald-600" />
+                        <span className="font-semibold">{t('dashboard')}</span>
                       </Button>
                     </Link>
                   )}
@@ -425,8 +430,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <Link href="/profile" onClick={() => setIsMobileMenuOpen(false)} className="py-2">
                   {t("profile")}
                 </Link>
-                {user.role === 'provider' && (
-                  <Link href="/provider/dashboard" onClick={() => setIsMobileMenuOpen(false)} className="py-2 font-bold text-emerald-600">
+                {(isAdmin || isProvider) && (
+                  <Link 
+                    href={isAdmin ? "/k-admin-portal-secure" : "/provider/dashboard"} 
+                    onClick={() => setIsMobileMenuOpen(false)} 
+                    className={cn("py-2 font-bold", isAdmin ? "text-slate-900" : "text-emerald-600")}
+                  >
                     <LayoutDashboard className="w-4 h-4 inline mr-2" /> {t("dashboard")}
                   </Link>
                 )}
@@ -458,8 +467,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
-      <AdminReturnButton />
-      <ProviderReturnButton />
+      {/* Mobile-Only Side Handle for Dashboard */}
+      {(isAdmin || isProvider) && (
+        <DashboardEdgeTab href={isAdmin ? "/k-admin-portal-secure" : "/provider/dashboard"} />
+      )}
 
       {/* Footer - Hide on Messages page for full height app feel */}
       {!isMessagesPage && (

@@ -3,6 +3,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
+import { setupSecurityHeaders, validateSessionSecret, authLimiter, apiLimiter } from "./security";
 
 const app = express();
 const httpServer = createServer(app);
@@ -12,6 +13,21 @@ declare module "http" {
     rawBody: unknown;
   }
 }
+
+// Validate session secret before starting
+const sessionSecret = validateSessionSecret();
+
+// Security headers (Helmet + custom)
+setupSecurityHeaders(app);
+
+// Rate limiting for auth endpoints (applied in routes)
+app.use("/api/login", authLimiter);
+app.use("/api/register", authLimiter);
+app.use("/api/auth", authLimiter);
+app.use("/api/admin/login", authLimiter);
+
+// General API rate limiting
+app.use("/api", apiLimiter);
 
 app.use(
   express.json({

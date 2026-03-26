@@ -51,9 +51,10 @@ export const api = {
       path: '/api/register',
       input: insertUserSchema.extend({
         username: z.string().min(3, "Username must be at least 3 characters").max(20, "Username must be less than 20 characters"),
-        password: z.string().min(6, "Password must be at least 6 characters"),
+        password: z.string().min(6, "Password must be at least 6 characters").optional().or(z.literal('')),
         fullName: z.string().min(2, "Full name is required"),
         email: z.string().email("Please enter a valid email address").optional().or(z.literal('')),
+        googleId: z.string().optional(),
         // Optional profile data during registration if role is provider
         providerProfile: insertProviderProfileSchema.omit({ userId: true }).optional(),
       }),
@@ -145,7 +146,12 @@ export const api = {
       method: 'GET' as const,
       path: '/api/conversations',
       responses: {
-        200: z.array(z.custom<typeof conversations.$inferSelect & { otherUser: typeof users.$inferSelect }>()),
+        200: z.array(z.custom<typeof conversations.$inferSelect & { 
+          otherUser: typeof users.$inferSelect,
+          unreadCount: number,
+          lastMessage?: string,
+          updatedAt?: string | Date
+        }>()),
         401: errorSchemas.unauthorized,
       },
     },
@@ -175,6 +181,15 @@ export const api = {
       responses: {
         201: z.custom<typeof messages.$inferSelect>(),
         401: errorSchemas.unauthorized,
+      },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/messages/:id',
+      responses: {
+        200: z.object({ success: z.boolean() }),
+        401: errorSchemas.unauthorized,
+        404: errorSchemas.notFound,
       },
     },
   },

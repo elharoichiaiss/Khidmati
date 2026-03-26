@@ -1,12 +1,13 @@
 import { Router } from "express";
 import { storage } from "../storage";
+import { compare } from "bcryptjs";
 
 export const adminRouter = Router();
 
 // Middleware to check if user is admin
 const isAuthenticatedAdmin = (req: any, res: any, next: any) => {
-    // Explicitly casting req to any to access session, though extending Request type is better practice
-    if (req.session && req.session.isAdmin) {
+    // Check for both the session flag and a valid admin user ID
+    if (req.session && req.session.isAdmin && req.session.adminUserId) {
         next();
     } else {
         res.status(403).json({ message: "Forbidden: Admin Access Required" });
@@ -18,23 +19,29 @@ const isAuthenticatedAdmin = (req: any, res: any, next: any) => {
 adminRouter.post("/login", async (req, res) => {
     const { username, password } = req.body;
 
-    const ADMIN_USER = process.env.ADMIN_USERNAME || "admin";
-    const ADMIN_PASS = process.env.ADMIN_PASSWORD || "admin123";
+    const ADMIN_USER = process.env.ADMIN_USERNAME;
+    const ADMIN_PASS = process.env.ADMIN_PASSWORD;
 
+    if (!ADMIN_USER || !ADMIN_PASS) {
+        console.error("ADMIN_USERNAME or ADMIN_PASSWORD not set in environment");
+        return res.status(500).json({ message: "Admin authentication not configured" });
+    }
+
+    // In a real production app, we should use bcrypt for the admin password too,
+    // but here we compare against the SECURE environment variable.
     if (username === ADMIN_USER && password === ADMIN_PASS) {
         req.session.isAdmin = true;
 
-        // Find or create a DB user record for the admin so we can use their ID as senderId
         try {
             const allUsers = await storage.getAllUsers();
             let adminDbUser = allUsers.find(u => u.role === "admin") ||
                               allUsers.find(u => u.username === ADMIN_USER);
 
             if (!adminDbUser) {
-                // Create admin user in DB if they don't exist
+                // Auto-create admin user in DB if they don't exist
                 adminDbUser = await storage.createUser({
                     username: ADMIN_USER,
-                    password: "session-admin", // Won't be used for login, session handles auth
+                    password: "session-admin-placeholder", // Not used for login
                     role: "admin",
                     fullName: "System Admin",
                     email: null,
@@ -47,20 +54,31 @@ adminRouter.post("/login", async (req, res) => {
             console.error("Could not find/create admin DB user:", e);
         }
 
-        return res.json({ message: "Admin login successful", user: { username: ADMIN_USER } });
+        // Return sanitized user info (username only for UI)
+        return res.json({ 
+            message: "Admin login successful", 
+            user: { username: ADMIN_USER } 
+        });
     }
 
     res.status(401).json({ message: "Invalid admin credentials" });
 });
 
 adminRouter.post("/logout", (req, res) => {
-    req.session.isAdmin = false;
-    res.json({ message: "Logged out successfully" });
+    // DESTROY the session completely for logout security
+    req.session.destroy((err) => {
+        if (err) {
+            console.error("Logout error:", err);
+            return res.status(500).json({ message: "Failed to log out" });
+        }
+        res.clearCookie('connect.sid'); // Clear the session cookie
+        res.json({ message: "Logged out successfully" });
+    });
 });
 
-adminRouter.get("/me", (req, res) => {
+adminRouter.get("/me", (req: any, res) => {
     if (req.session.isAdmin) {
-        return res.json({ username: "admin" });
+        return res.json({ username: process.env.ADMIN_USERNAME || "admin" });
     }
     res.status(401).send("Not authenticated");
 });
@@ -70,22 +88,10 @@ adminRouter.get("/me", (req, res) => {
 adminRouter.get("/stats", isAuthenticatedAdmin, async (req, res) => {
     try {
         const users = await storage.getAllUsers();
-
-        // KPI Calculations
-        const totalUsers = users.length;
-        const providers = users.filter(u => u.role === 'provider').length;
-        // Assuming "Listings" correlates to Provider Profiles (active providers)
-        // We can filter additionally if 'Active' means something specific like `!isBanned`
-        const activeProviders = users.filter(u => u.role === 'provider' && !u.isBanned).length;
-
-        // Total Listings: In this context, likely refers to total providers or posts. 
-        // Since we don't have a "listings" table, we'll use provider count or similar.
-        // Let's return stats object
-
         res.json({
-            totalUsers,
-            activeProviders,
-            totalListings: providers, // Using total providers as listings for now
+            totalUsers: users.length,
+            activeProviders: users.filter(u => u.role === 'provider' && !u.isBanned).length,
+            totalListings: users.filter(u => u.role === 'provider').length,
             bannedUsers: users.filter(u => u.isBanned).length
         });
     } catch (error) {
@@ -96,7 +102,7 @@ adminRouter.get("/stats", isAuthenticatedAdmin, async (req, res) => {
 
 adminRouter.get("/users", isAuthenticatedAdmin, async (req, res) => {
     try {
-        const users = await storage.getAllUsers();
+        const users = await storage.getAllUsers(); // Already sanitized in storage.ts
         res.json(users);
     } catch (error) {
         console.error("Admin users error:", error);
@@ -106,7 +112,7 @@ adminRouter.get("/users", isAuthenticatedAdmin, async (req, res) => {
 
 adminRouter.get("/tickets", isAuthenticatedAdmin, async (req, res) => {
     try {
-        const tickets = await storage.getAllTickets();
+        const tickets = await storage.getAllTickets(); // Sanitized
         res.json(tickets);
     } catch (error) {
         console.error("Admin tickets error:", error);
@@ -134,33 +140,8 @@ adminRouter.post("/tickets/:id/messages", isAuthenticatedAdmin, async (req, res)
             return res.status(400).json({ message: "Content is required" });
         }
 
-        // Use the admin's DB user ID stored in the session (set at login)
-        let senderId: number | undefined = (req.session as any).adminUserId;
-
-        // Fallback: find or auto-create the admin DB user
-        if (!senderId) {
-            const ADMIN_USER = process.env.ADMIN_USERNAME || "admin";
-            const allUsers = await storage.getAllUsers();
-            let adminDbUser = allUsers.find(u => u.role === "admin") ||
-                              allUsers.find(u => u.username === ADMIN_USER);
-
-            if (!adminDbUser) {
-                // Auto-create admin user in DB (role ensures messages show as "Support Team")
-                adminDbUser = await storage.createUser({
-                    username: ADMIN_USER,
-                    password: "session-admin-placeholder",
-                    role: "admin",
-                    fullName: "Support Team",
-                    email: null,
-                    phone: null,
-                } as any);
-                console.log("[Admin] Auto-created admin DB user with ID:", adminDbUser.id);
-            }
-
-            senderId = adminDbUser.id;
-            // Cache in session for future requests
-            (req.session as any).adminUserId = senderId;
-        }
+        const senderId = (req.session as any).adminUserId;
+        if (!senderId) return res.status(400).json({ message: "Admin user ID missing" });
 
         const msg = await storage.createTicketMessage({
             ticketId,
@@ -170,13 +151,17 @@ adminRouter.post("/tickets/:id/messages", isAuthenticatedAdmin, async (req, res)
         res.status(201).json(msg);
     } catch (error) {
         console.error("Admin ticket message error:", error);
-        res.status(500).json({ message: "Server error", detail: String(error) });
+        res.status(500).json({ message: "Server error" });
     }
 });
 
 adminRouter.patch("/tickets/:id/status", isAuthenticatedAdmin, async (req, res) => {
     try {
-        const updated = await storage.updateTicketStatus(Number(req.params.id), req.body.status);
+        const status = req.body.status;
+        if (!["open", "closed", "resolved"].includes(status)) {
+            return res.status(400).json({ message: "Invalid status" });
+        }
+        const updated = await storage.updateTicketStatus(Number(req.params.id), status as any);
         res.json(updated);
     } catch (error) {
         console.error("Admin ticket status error:", error);
@@ -196,9 +181,7 @@ adminRouter.post("/users/:id/ban", isAuthenticatedAdmin, async (req, res) => {
 
 adminRouter.delete("/users/:id", isAuthenticatedAdmin, async (req, res) => {
     try {
-        const userId = Number(req.params.id);
-        console.log(`[Admin] Attempting to delete user: ${userId}`);
-        await storage.deleteUser(userId);
+        await storage.deleteUser(Number(req.params.id));
         res.sendStatus(204);
     } catch (error) {
         console.error("Admin user delete error:", error);

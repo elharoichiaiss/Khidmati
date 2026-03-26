@@ -62,7 +62,7 @@ function ClientProfileSection({ user, language, t, subscribe, isSubscribing }: a
       const formData = new FormData();
       formData.append('fullName', fullName);
       if (fileRef.current?.files?.[0]) {
-        formData.append('profileImage', fileRef.current.files[0]);
+        formData.append('avatar', fileRef.current.files[0]);
       }
       const res = await fetch('/api/user/profile', {
         method: 'PATCH',
@@ -70,7 +70,7 @@ function ClientProfileSection({ user, language, t, subscribe, isSubscribing }: a
         credentials: 'include',
       });
       if (!res.ok) throw new Error('Failed');
-      await queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
+      await queryClient.invalidateQueries({ queryKey: [api.auth.me.path] });
       setEditing(false);
       setPreviewUrl(null);
     } catch {
@@ -282,10 +282,10 @@ export default function Profile() {
 
       setUploading(true);
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('image', file);
 
       try {
-        const res = await fetch('/api/uploads', {
+        const res = await fetch('/api/upload/image', {
           method: 'POST',
           body: formData,
         });

@@ -8,13 +8,16 @@ import { z } from "zod";
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(), // email or phone can be username
-  password: text("password").notNull(),
+  password: text("password"), // Nullable for OAuth users
+  googleId: text("google_id").unique(), // For Google OAuth
   role: text("role", { enum: ["client", "provider", "admin"] }).notNull().default("client"),
   fullName: text("full_name").notNull(),
   email: text("email"),
   phone: text("phone"),
   city: text("city"),
   profileImage: text("profile_image"),
+  latitude: real("latitude"),
+  longitude: real("longitude"),
   language: text("language", { enum: ["ar", "fr", "en"] }).default("ar"),
   isBanned: boolean("is_banned").default(false),
   createdAt: timestamp("created_at").defaultNow(),

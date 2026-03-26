@@ -6,8 +6,9 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import { adminRouter } from "./routes/admin";
-import { upload } from "./multer";
+import { upload, validateFile } from "./multer";
 import express from "express";
+import fs from "fs";
 import path from "path";
 import { sendPushToUser } from "./push";
 import { db } from "./db";
@@ -25,21 +26,22 @@ export async function registerRoutes(
   // Serve uploaded files
   app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
+  // Admin Routes
+  app.use("/api/admin", adminRouter);
+
   // Auth Routes
   app.post(api.auth.register.path, upload.single('profileImage'), async (req, res, next) => {
     try {
-      console.log("--- NEW REGISTRATION ATTEMPT ---");
-      // Log the entire body to see if workingHours is there under a different key or format
-      console.log("FULL BODY:", JSON.stringify(req.body, null, 2));
-
-      console.log("Raw req.body keys:", Object.keys(req.body));
-      console.log("Value of req.body.workingHours:", req.body.workingHours);
-
       const bodyData = { ...req.body };
-      console.log("Registration keys received:", Object.keys(bodyData));
 
       // Add image path if uploaded
       if (req.file) {
+        // SECURITY: Validate file magic bytes before processing
+        const isValid = await validateFile(req.file.path, ['jpg', 'png', 'gif', 'webp']);
+        if (!isValid) {
+          fs.unlinkSync(req.file.path); // Delete the invalid file
+          return res.status(400).json({ message: "Invalid file type (magic bytes mismatch)" });
+        }
         bodyData.profileImage = `/uploads/${req.file.filename}`;
       }
 
@@ -58,11 +60,9 @@ export async function registerRoutes(
 
       // Handle Provider Profile nesting and coercion
       if (bodyData.role === 'provider') {
-        console.log("Raw workingHours from body:", bodyData.workingHours);
         let workingHours;
         try {
           workingHours = bodyData.workingHours ? JSON.parse(bodyData.workingHours) : undefined;
-          console.log("Parsed workingHours:", workingHours);
         } catch (e) {
           console.error("Failed to parse workingHours:", e);
         }
@@ -97,15 +97,28 @@ export async function registerRoutes(
       });
     } catch (err) {
       if (err instanceof z.ZodError) {
-        console.error("Registration Validation Error:", JSON.stringify(err.errors, null, 2));
+        console.error("Registration Validation Error:", err.errors.map((e: any) => e.message).join(", "));
         return res.status(400).json({
-          message: err.errors[0].message,
-          field: err.errors[0].path.join('.'),
+          message: "Validation error. Please check your input.",
         });
       }
       next(err);
     }
   });
+
+  app.get("/api/auth/google", passport.authenticate("google", { scope: ["profile", "email"] }));
+
+  app.get("/api/auth/google/callback", 
+    passport.authenticate("google", { failureRedirect: "/auth?error=true" }),
+    (req, res) => {
+      const user = req.user as any;
+      if (user?.role === "provider") {
+        res.redirect("/dashboard");
+      } else {
+        res.redirect("/");
+      }
+    }
+  );
 
   app.post(api.auth.login.path, (req, res, next) => {
     // Using passport.authenticate middleware logic inside the route handler for custom response
@@ -149,6 +162,43 @@ export async function registerRoutes(
     res.json(user);
   });
 
+  // Unified Profile Update Route
+  app.patch("/api/user/profile", upload.single("avatar"), async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const user = req.user as any;
+    const { fullName, latitude, longitude } = req.body;
+
+    try {
+      const updates: any = {};
+      if (fullName) updates.fullName = fullName;
+      if (latitude) updates.latitude = parseFloat(latitude);
+      if (longitude) updates.longitude = parseFloat(longitude);
+      if (req.file) {
+        updates.profileImage = `/uploads/${req.file.filename}`;
+      }
+
+      const updatedUser = await storage.updateUser(user.id, updates);
+      
+      // Update session if needed
+      req.login(updatedUser, (err) => {
+        if (err) return res.status(500).json({ message: "Error updating session" });
+        res.json(updatedUser);
+      });
+    } catch (err) {
+      console.error("Profile update error:", err);
+      res.status(500).json({ message: "Failed to update profile" });
+    }
+  });
+
+  // Chat Image Upload Route
+  app.post("/api/upload/image", upload.single("image"), (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    if (!req.file) return res.status(400).json({ message: "No file uploaded" });
+
+    const url = `/uploads/${req.file.filename}`;
+    res.json({ url });
+  });
+
   // Providers Routes
   // Providers Routes
   app.get("/api/providers", async (req, res) => {
@@ -186,7 +236,7 @@ export async function registerRoutes(
     }
   });
 
-  // User Profile Update (fullName, profileImage) - works for ALL roles
+  // User Profile Update (fullName, profileImage, lat/lng) - works for ALL roles
   app.patch("/api/user/profile", upload.single('profileImage'), async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const user = req.user as any;
@@ -197,7 +247,19 @@ export async function registerRoutes(
       if (req.body.fullName && req.body.fullName.trim()) {
         updateData.fullName = req.body.fullName.trim();
       }
+      if (req.body.latitude) {
+        updateData.latitude = parseFloat(req.body.latitude);
+      }
+      if (req.body.longitude) {
+        updateData.longitude = parseFloat(req.body.longitude);
+      }
       if (req.file) {
+        // SECURITY: Validate file magic bytes
+        const isValid = await validateFile(req.file.path, ['jpg', 'png', 'gif', 'webp']);
+        if (!isValid) {
+          fs.unlinkSync(req.file.path);
+          return res.status(400).json({ message: "Invalid file type (magic bytes mismatch)" });
+        }
         updateData.profileImage = `/uploads/${req.file.filename}`;
       }
 
@@ -291,17 +353,31 @@ export async function registerRoutes(
     }
   });
 
-  app.post('/api/upload/voice', upload.single('voice'), (req, res) => {
+  app.post('/api/upload/voice', upload.single('voice'), async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     if (!req.file) return res.status(400).json({ message: "No voice file uploaded" });
+
+    // SECURITY: Validate voice file magic bytes (mp3, wav, webm)
+    const isValid = await validateFile(req.file.path, ['mp3', 'wav', 'webm']);
+    if (!isValid) {
+      fs.unlinkSync(req.file.path);
+      return res.status(400).json({ message: "Invalid audio file type (magic bytes mismatch)" });
+    }
 
     res.json({ url: `/uploads/${req.file.filename}` });
   });
 
   // Generic upload endpoint for Profile/Portfolio
-  app.post('/api/uploads', upload.single('file'), (req, res) => {
+  app.post('/api/uploads', upload.single('file'), async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     if (!req.file) return res.status(400).json({ message: "No file uploaded" });
+
+    // SECURITY: Validate file magic bytes (allow common images)
+    const isValid = await validateFile(req.file.path, ['jpg', 'png', 'gif', 'webp']);
+    if (!isValid) {
+      fs.unlinkSync(req.file.path);
+      return res.status(400).json({ message: "Invalid file type (magic bytes mismatch)" });
+    }
 
     res.json({ url: `/uploads/${req.file.filename}` });
   });
@@ -325,7 +401,17 @@ export async function registerRoutes(
 
     try {
       const content = req.body.content || "";
-      const imageUrl = req.file ? `/uploads/${req.file.filename}` : (req.body.imageUrl || null);
+      
+      let imageUrl = req.body.imageUrl || null;
+      if (req.file) {
+        // SECURITY: Validate chat image magic bytes
+        const isValid = await validateFile(req.file.path, ['jpg', 'png', 'gif', 'webp']);
+        if (!isValid) {
+          fs.unlinkSync(req.file.path);
+          return res.status(400).json({ message: "Invalid image type (magic bytes mismatch)" });
+        }
+        imageUrl = `/uploads/${req.file.filename}`;
+      }
       const type = req.body.type || "text";
       const locationData = req.body.locationData || null;
       const fileUrl = req.body.fileUrl || null;

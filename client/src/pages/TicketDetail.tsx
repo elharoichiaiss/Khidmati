@@ -218,9 +218,16 @@ export default function TicketDetailPage() {
                                         </AvatarFallback>
                                     </Avatar>
                                     <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[80%]`}>
-                                        <span className="text-[11px] text-muted-foreground mb-1 px-1">
-                                            {displayName} {' • '} {new Date(msg.createdAt!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                        </span>
+                                        <div className="flex items-center gap-1.5 mb-1 px-1 text-[11px] text-muted-foreground">
+                                            <span>{displayName}</span>
+                                            {isSupportAdmin && (
+                                                <Badge variant="outline" className="text-[9px] h-4 px-1 py-0 border-amber-500 text-amber-600 bg-amber-50 rounded-sm leading-none shrink-0 font-bold uppercase tracking-wider">
+                                                    Admin
+                                                </Badge>
+                                            )}
+                                            <span>{' • '}</span>
+                                            <span>{new Date(msg.createdAt!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                        </div>
                                         <div className={`px-4 py-2.5 rounded-2xl ${bubbleClass}`}>
                                             <p className="whitespace-pre-wrap text-sm leading-relaxed">{msg.content}</p>
                                         </div>
