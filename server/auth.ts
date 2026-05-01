@@ -71,62 +71,66 @@ export function setupAuth(app: Express) {
   const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
   if (googleClientId && googleClientSecret) {
-    const GoogleStrategy = require("passport-google-oauth20").Strategy;
-    
-    passport.use(
-      new GoogleStrategy(
-        {
-          clientID: googleClientId,
-          clientSecret: googleClientSecret,
-          callbackURL: "/api/auth/google/callback",
-          passReqToCallback: true,
-        },
-        async (req: any, accessToken: string, refreshToken: string, profile: any, done: any) => {
-          try {
-            // 1. Check if user exists by googleId
-            const usersList = await storage.getAllUsers();
-            let user = usersList.find(u => u.googleId === profile.id);
+    // Dynamic import for ESM compatibility with esbuild
+    import("passport-google-oauth20")
+      .then(({ Strategy: GoogleStrategy }) => {
+        passport.use(
+          new GoogleStrategy(
+            {
+              clientID: googleClientId,
+              clientSecret: googleClientSecret,
+              callbackURL: "/api/auth/google/callback",
+              passReqToCallback: true,
+            },
+            async (req: any, accessToken: string, refreshToken: string, profile: any, done: any) => {
+              try {
+                // 1. Check if user exists by googleId
+                const usersList = await storage.getAllUsers();
+                let user = usersList.find(u => u.googleId === profile.id);
 
-            if (!user) {
-              // 2. Check if user exists by email
-              const email = profile.emails?.[0]?.value;
-              if (email) {
-                user = usersList.find(u => u.email === email || u.username === email);
-              }
+                if (!user) {
+                  // 2. Check if user exists by email
+                  const email = profile.emails?.[0]?.value;
+                  if (email) {
+                    user = usersList.find(u => u.email === email || u.username === email);
+                  }
 
-              if (user) {
-                // Link googleId to existing user
-                user = await storage.updateUser(user.id, { googleId: profile.id } as any);
-              } else {
-                // 3. Create new user
-                const username = email || `google_${profile.id}`;
-                // Fallback to random password if db complains, though schema says nullable
-                const newUserData = {
-                  username: username,
-                  fullName: profile.displayName || "Google User",
-                  email: email || null,
-                  googleId: profile.id,
-                  profileImage: profile.photos?.[0]?.value || null,
-                  role: "client" as const,
-                  password: null as any // Optional due to our schema change
-                };
-                
-                user = await storage.createUser(newUserData as any);
+                  if (user) {
+                    // Link googleId to existing user
+                    user = await storage.updateUser(user.id, { googleId: profile.id } as any);
+                  } else {
+                    // 3. Create new user
+                    const username = email || `google_${profile.id}`;
+                    const newUserData = {
+                      username: username,
+                      fullName: profile.displayName || "Google User",
+                      email: email || null,
+                      googleId: profile.id,
+                      profileImage: profile.photos?.[0]?.value || null,
+                      role: "client" as const,
+                      password: null as any
+                    };
+                    
+                    user = await storage.createUser(newUserData as any);
+                  }
+                }
+
+                if (user.isBanned) {
+                  return done(null, false, { message: "Account is banned" });
+                }
+
+                return done(null, user);
+              } catch (err) {
+                console.error("Google Auth Error:", err);
+                return done(err);
               }
             }
-
-            if (user.isBanned) {
-              return done(null, false, { message: "Account is banned" });
-            }
-
-            return done(null, user);
-          } catch (err) {
-            console.error("Google Auth Error:", err);
-            return done(err);
-          }
-        }
-      )
-    );
+          )
+        );
+      })
+      .catch((err) => {
+        console.error("Failed to load passport-google-oauth20:", err);
+      });
   }
 
   passport.serializeUser((user, done) => {
