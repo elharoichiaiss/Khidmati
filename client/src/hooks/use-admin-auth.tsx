@@ -33,8 +33,20 @@ export function useAdminAuth() {
             });
 
             if (!res.ok) {
-                if (res.status === 401) throw new Error("Invalid admin credentials");
-                throw new Error("Admin login failed");
+                let errorMessage = "Admin login failed";
+                try {
+                    const errData = await res.json();
+                    if (errData && errData.message) {
+                        errorMessage = errData.message;
+                    }
+                } catch (e) {
+                    // fallback to default
+                }
+                
+                if (res.status === 401 && errorMessage === "Admin login failed") {
+                    throw new Error("Invalid admin credentials");
+                }
+                throw new Error(errorMessage);
             }
             return await res.json();
         },
