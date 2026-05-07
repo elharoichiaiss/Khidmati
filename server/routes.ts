@@ -770,7 +770,11 @@ export async function registerRoutes(
   setInterval(runCleanup, 60 * 60 * 1000);
 
   // Seed Data
-  await seedDatabase();
+  try {
+    await seedDatabase();
+  } catch (err) {
+    console.warn("Seed skipped: tables not found", err);
+  }
 
   return httpServer;
 }
