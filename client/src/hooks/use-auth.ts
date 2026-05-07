@@ -24,7 +24,7 @@ export function useAuth() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(credentials),
         credentials: "include",
-      }a);
+      });
       if (!res.ok) {
         if (res.status === 401) throw new Error("Invalid username or password");
         throw new Error("Login failed");
