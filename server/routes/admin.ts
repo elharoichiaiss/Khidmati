@@ -4,6 +4,8 @@ import { compare } from "bcryptjs";
 
 export const adminRouter = Router();
 
+console.log("Admin Router loaded. ADMIN_USERNAME:", process.env.ADMIN_USERNAME ? "DEFINED" : "UNDEFINED");
+
 // Middleware to check if user is admin
 const isAuthenticatedAdmin = (req: any, res: any, next: any) => {
     // Check for both the session flag and a valid admin user ID
@@ -17,18 +19,19 @@ const isAuthenticatedAdmin = (req: any, res: any, next: any) => {
 // --- Admin Auth ---
 
 adminRouter.post("/login", async (req, res) => {
-    const { username, password } = req.body;
+    const { username: rawUsername, password: rawPassword } = req.body;
+    const username = rawUsername?.trim();
+    const password = rawPassword?.trim();
 
-    const ADMIN_USER = process.env.ADMIN_USERNAME;
-    const ADMIN_PASS = process.env.ADMIN_PASSWORD;
+    const ADMIN_USER = process.env.ADMIN_USERNAME?.trim();
+    const ADMIN_PASS = process.env.ADMIN_PASSWORD?.trim();
 
-    if (!ADMIN_USER || !ADMIN_PASS) {
-        console.error("ADMIN_USERNAME or ADMIN_PASSWORD not set in environment");
-        return res.status(500).json({ message: "Admin authentication not configured" });
-    }
+    console.log(`[AUTH DEBUG] Attempting admin login:`);
+    console.log(`  Input Username: [${username}] (len: ${username?.length})`);
+    console.log(`  Env ADMIN_USER: [${ADMIN_USER}] (len: ${ADMIN_USER?.length})`);
+    console.log(`  Username Match: ${username === ADMIN_USER}`);
+    console.log(`  Password Match: ${password === ADMIN_PASS}`);
 
-    // In a real production app, we should use bcrypt for the admin password too,
-    // but here we compare against the SECURE environment variable.
     if (username === ADMIN_USER && password === ADMIN_PASS) {
         req.session.isAdmin = true;
 
