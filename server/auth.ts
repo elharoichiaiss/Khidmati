@@ -14,11 +14,18 @@ const PgSession = connectPgSimple(session);
 export function setupAuth(app: Express) {
   const sessionSecret = validateSessionSecret();
 
+  const sessionStore = new PgSession({
+    pool,
+    createTableIfMissing: true,
+  });
+
+  // Prevent session store errors from crashing the server
+  sessionStore.on('error', (err) => {
+    console.error('SESSION STORE ERROR:', err);
+  });
+
   const sessionSettings: session.SessionOptions = {
-    store: new PgSession({
-      pool,
-      createTableIfMissing: true,
-    }),
+    store: sessionStore,
     secret: sessionSecret,
     resave: false,
     saveUninitialized: false,

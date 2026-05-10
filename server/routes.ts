@@ -20,11 +20,11 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // Setup Authentication
-  setupAuth(app);
-
   // Serve uploaded files
   app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+
+  // Setup Authentication
+  setupAuth(app);
 
   // Admin Routes
   app.use("/api/admin", adminRouter);
