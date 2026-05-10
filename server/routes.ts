@@ -26,9 +26,6 @@ export async function registerRoutes(
   // Setup Authentication
   setupAuth(app);
 
-  // Admin Routes
-  app.use("/api/admin", adminRouter);
-
   // Auth Routes
   app.post(api.auth.register.path, upload.single('profileImage'), async (req, res, next) => {
     try {
