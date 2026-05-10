@@ -6,3 +6,5 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+scratch/
+build.log

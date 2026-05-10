@@ -783,13 +783,23 @@ export async function registerRoutes(
 // uses a separate auth mechanism (Username/Password hardcoded or env)
 // rather than the "users" table login.
 async function seedDatabase() {
-  // Ensure "admin" user exists in DB too (optional, but good for consistency)
-  /* LEGACY ADMIN REMOVED per user request
-  const existingAdmin = await storage.getUserByUsername("admin");
+  // Ensure "admin" user exists in DB too
+  const ADMIN_USER = process.env.ADMIN_USERNAME || "admin";
+  const ADMIN_PASS = process.env.ADMIN_PASSWORD || "admin123";
+
+  const existingAdmin = await storage.getUserByUsername(ADMIN_USER);
   if (!existingAdmin) {
-    ...
+    console.log("Seeding admin user...");
+    await storage.createUser({
+      username: ADMIN_USER,
+      password: ADMIN_PASS,
+      role: "admin",
+      fullName: "System Admin",
+      email: null,
+      phone: null,
+      language: "ar",
+    } as any);
   }
-  */
 
   // Seed other data if provider1 doesn't exist
   const existingUser = await storage.getUserByUsername("provider1");

@@ -33,28 +33,38 @@ adminRouter.post("/login", async (req, res) => {
         req.session.isAdmin = true;
 
         try {
+            // Find existing admin or create a new one
             const allUsers = await storage.getAllUsers();
-            let adminDbUser = allUsers.find(u => u.role === "admin") ||
+            let adminDbUser = allUsers.find(u => u.role === "admin") || 
                               allUsers.find(u => u.username === ADMIN_USER);
 
             if (!adminDbUser) {
-                // Auto-create admin user in DB if they don't exist
+                console.log(`Auto-creating admin DB entry for ${ADMIN_USER}`);
                 adminDbUser = await storage.createUser({
                     username: ADMIN_USER,
-                    password: "session-admin-placeholder", // Not used for login
+                    password: ADMIN_PASS, // Use actual admin pass
                     role: "admin",
                     fullName: "System Admin",
                     email: null,
                     phone: null,
+                    language: 'ar'
                 } as any);
             }
 
-            req.session.adminUserId = adminDbUser.id;
+            if (adminDbUser) {
+                req.session.adminUserId = adminDbUser.id;
+                console.log(`Admin ${ADMIN_USER} logged in with DB ID: ${adminDbUser.id}`);
+            } else {
+                throw new Error("Failed to find or create admin DB user");
+            }
+
         } catch (e) {
-            console.error("Could not find/create admin DB user:", e);
+            console.error("CRITICAL: Could not find/create admin DB user:", e);
+            // We still have req.session.isAdmin = true, but features needing adminUserId might fail.
+            // Better to fail the login if we can't link to a DB user.
+            return res.status(500).json({ message: "Admin session initialization failed" });
         }
 
-        // Return sanitized user info (username only for UI)
         return res.json({ 
             message: "Admin login successful", 
             user: { username: ADMIN_USER } 
