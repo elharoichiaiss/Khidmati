@@ -32,8 +32,17 @@ export function useAdminAuth() {
                 body: JSON.stringify(credentials),
             });
 
+            const contentType = res.headers.get("content-type") || "";
+            if (!contentType.includes("application/json")) {
+                const text = await res.text().catch(() => "");
+                if (text.trim().startsWith("<!DOCTYPE") || text.trim().startsWith("<html")) {
+                    throw new Error("تعذر الاتصال بخادم الإدارة. يرجى التأكد من تشغيل خادم الـ API (Express/Railway).");
+                }
+                throw new Error(text || "استجابة غير صالحة من خادم الإدارة");
+            }
+
             if (!res.ok) {
-                let errorMessage = "Admin login failed";
+                let errorMessage = "فشل تسجيل دخول الأدمن";
                 try {
                     const errData = await res.json();
                     if (errData && errData.message) {
@@ -43,8 +52,8 @@ export function useAdminAuth() {
                     // fallback to default
                 }
                 
-                if (res.status === 401 && errorMessage === "Admin login failed") {
-                    throw new Error("Invalid admin credentials");
+                if (res.status === 401) {
+                    throw new Error("اسم المستخدم أو كلمة المرور غير صحيحة");
                 }
                 throw new Error(errorMessage);
             }
