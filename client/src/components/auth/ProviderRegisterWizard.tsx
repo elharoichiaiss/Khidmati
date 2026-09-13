@@ -209,8 +209,10 @@ const getStep1Schema = (l: any) => z.object({
 });
 
 const getStep1CompleteSchema = (l: any) => z.object({
+  fullName: z.string().min(3, l.nameTooShort).max(50, l.nameTooLong),
   username: z.string().min(3, l.usernameTooShort).max(20, l.usernameTooLong),
-  phone: z.string().regex(/^[0-9+\-\s]*$/, l.invalidPhone).optional(),
+  phone: z.string().min(8, l.invalidPhone).regex(/^[0-9+\-\s]+$/, l.invalidPhone).optional().or(z.literal('')),
+  email: z.string().email(l.invalidEmail).optional().or(z.literal('')),
 });
 
 const getStep2Schema = (l: any) => z.object({
@@ -307,7 +309,7 @@ export function ProviderRegisterWizard({ onSuccess, lang = "ar", completeMode = 
   // Prefill existing user data when completing a profile
   useEffect(() => {
     if (completeMode && user) {
-      const prefix = (user.email || "").split("@")[0].toLowerCase();
+      const prefix = (user.email || "").split("@")[0].toLowerCase().replace(/[^a-z0-9_]/g, "_");
       form.setValue("username", user.username && !user.username.includes("@") ? user.username : (prefix.length >= 3 ? prefix : `user_${user.id}`));
       form.setValue("fullName", user.fullName || "");
       form.setValue("email", user.email || "");
@@ -360,12 +362,13 @@ export function ProviderRegisterWizard({ onSuccess, lang = "ar", completeMode = 
       if (completeMode) {
         await completeProfile({
           role: "provider",
+          fullName: formValues.fullName,
           username: formValues.username.trim().toLowerCase(),
           phone: formValues.phone || null,
           city: formValues.city,
           serviceCategory: formValues.serviceCategory,
-          yearsOfExperience: Number(formValues.yearsOfExperience),
-          bio: formValues.bio,
+          yearsOfExperience: Number(formValues.yearsOfExperience || 0),
+          bio: formValues.bio || "",
         });
         onSuccess();
         return;
@@ -499,7 +502,6 @@ export function ProviderRegisterWizard({ onSuccess, lang = "ar", completeMode = 
                 transition={{ duration: 0.2 }}
                 className="space-y-4"
               >
-                {!completeMode && (
                 <FormField
                   control={form.control}
                   name="fullName"
@@ -519,7 +521,6 @@ export function ProviderRegisterWizard({ onSuccess, lang = "ar", completeMode = 
                     </FormItem>
                   )}
                 />
-                )}
 
                 <FormField
                   control={form.control}
@@ -554,17 +555,25 @@ export function ProviderRegisterWizard({ onSuccess, lang = "ar", completeMode = 
                   )}
                 />
 
-                {!completeMode && (
                 <FormField
                   control={form.control}
                   name="email"
                   render={({ field, fieldState }) => (
                     <FormItem>
-                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{l.email}</p>
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{l.email}</p>
+                        {completeMode && (
+                          <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
+                            <Check className="w-3 h-3 text-emerald-500" />
+                            {isRTL ? "مُؤكّد من Google" : lang === "fr" ? "Vérifié par Google" : "Google Verified"}
+                          </span>
+                        )}
+                      </div>
                       <FormControl>
                         <Input
                           type="email"
                           placeholder="mohamed@example.com"
+                          isDisabled={completeMode}
                           startContent={<Mail className="w-4 h-4 text-gray-400" />}
                           value={field.value}
                           onValueChange={(val) => field.onChange(val)}
@@ -575,7 +584,6 @@ export function ProviderRegisterWizard({ onSuccess, lang = "ar", completeMode = 
                     </FormItem>
                   )}
                 />
-                )}
 
                 <FormField
                   control={form.control}
@@ -599,67 +607,67 @@ export function ProviderRegisterWizard({ onSuccess, lang = "ar", completeMode = 
                 />
 
                 {!completeMode && (
-                <div className="grid grid-cols-2 gap-3">
-                  <FormField
-                    control={form.control}
-                    name="password"
-                    render={({ field, fieldState }) => (
-                      <FormItem>
-                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{l.password}</p>
-                        <FormControl>
-                          <Input
-                            type={showPassword ? "text" : "password"}
-                            placeholder="••••••"
-                            startContent={<Lock className="w-4 h-4 text-gray-400" />}
-                            endContent={
-                              <button
-                                type="button"
-                                onClick={() => setShowPassword(!showPassword)}
-                                className="text-gray-400 hover:text-gray-600"
-                              >
-                                {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                              </button>
-                            }
-                            value={field.value}
-                            onValueChange={(val) => field.onChange(val)}
-                            isInvalid={!!fieldState.error}
-                            errorMessage={fieldState.error?.message}
-                          />
-                        </FormControl>
-                        <PasswordStrength password={field.value || ""} lang={lang} />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="confirmPassword"
-                    render={({ field, fieldState }) => (
-                      <FormItem>
-                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{l.confirm}</p>
-                        <FormControl>
-                          <Input
-                            type={showConfirm ? "text" : "password"}
-                            placeholder="••••••"
-                            startContent={<Lock className="w-4 h-4 text-gray-400" />}
-                            endContent={
-                              <button
-                                type="button"
-                                onClick={() => setShowConfirm(!showConfirm)}
-                                className="text-gray-400 hover:text-gray-600"
-                              >
-                                {showConfirm ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                              </button>
-                            }
-                            value={field.value}
-                            onValueChange={(val) => field.onChange(val)}
-                            isInvalid={!!fieldState.error}
-                            errorMessage={fieldState.error?.message}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <FormField
+                      control={form.control}
+                      name="password"
+                      render={({ field, fieldState }) => (
+                        <FormItem>
+                          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{l.password}</p>
+                          <FormControl>
+                            <Input
+                              type={showPassword ? "text" : "password"}
+                              placeholder="••••••"
+                              startContent={<Lock className="w-4 h-4 text-gray-400" />}
+                              endContent={
+                                <button
+                                  type="button"
+                                  onClick={() => setShowPassword(!showPassword)}
+                                  className="text-gray-400 hover:text-gray-600"
+                                >
+                                  {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                </button>
+                              }
+                              value={field.value}
+                              onValueChange={(val) => field.onChange(val)}
+                              isInvalid={!!fieldState.error}
+                              errorMessage={fieldState.error?.message}
+                            />
+                          </FormControl>
+                          <PasswordStrength password={field.value || ""} lang={lang} />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="confirmPassword"
+                      render={({ field, fieldState }) => (
+                        <FormItem>
+                          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{l.confirm}</p>
+                          <FormControl>
+                            <Input
+                              type={showConfirm ? "text" : "password"}
+                              placeholder="••••••"
+                              startContent={<Lock className="w-4 h-4 text-gray-400" />}
+                              endContent={
+                                <button
+                                  type="button"
+                                  onClick={() => setShowConfirm(!showConfirm)}
+                                  className="text-gray-400 hover:text-gray-600"
+                                >
+                                  {showConfirm ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                </button>
+                              }
+                              value={field.value}
+                              onValueChange={(val) => field.onChange(val)}
+                              isInvalid={!!fieldState.error}
+                              errorMessage={fieldState.error?.message}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                 )}
 
                 <Button

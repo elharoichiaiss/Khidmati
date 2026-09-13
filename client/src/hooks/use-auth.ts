@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 
 export type CompleteProfileRequest = {
   role: "client" | "provider";
+  fullName?: string;
   username?: string;
   phone?: string | null;
   city: string;
@@ -196,6 +197,8 @@ export function useAuth() {
         const { data: updateRes, error: updateErr } = await supabase.auth.updateUser({
           data: {
             role: data.role,
+            fullName: data.fullName,
+            full_name: data.fullName,
             username: data.username,
             phone: data.phone,
             city: data.city,

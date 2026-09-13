@@ -173,13 +173,13 @@ const getStep1Schema = (l: any) => z.object({
   path: ["confirmPassword"],
 });
 
-const getStep2Schema = (l: any) => z.object({
-  phone: z.string().optional(),
-  city: z.string().min(1, l.selectCity || "Select your city"),
+const getStep1CompleteSchema = (l: any) => z.object({
+  fullName: z.string().min(3, l.nameTooShort || "Name is too short"),
+  username: z.string().min(3, l.usernameTooShort || "At least 3 characters").max(20, l.usernameTooLong || "Max 20 characters"),
+  email: z.string().email(l.invalidEmail || "Enter a valid email").optional().or(z.literal('')),
 });
 
-const getStep2CompleteSchema = (l: any) => z.object({
-  username: z.string().min(3, l.usernameTooShort || "At least 3 characters").max(20, l.usernameTooLong || "Max 20 characters"),
+const getStep2Schema = (l: any) => z.object({
   phone: z.string().optional(),
   city: z.string().min(1, l.selectCity || "Select your city"),
 });
@@ -192,7 +192,7 @@ interface RegisterWizardProps {
 }
 
 export function RegisterWizard({ onSuccess, lang = "ar", completeMode = false }: RegisterWizardProps) {
-  const [step, setStep] = useState(completeMode ? 2 : 1);
+  const [step, setStep] = useState(1);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const { user, register: registerUser, isRegistering, completeProfile, isCompleting } = useAuth();
@@ -201,8 +201,8 @@ export function RegisterWizard({ onSuccess, lang = "ar", completeMode = false }:
   const l = tr[lang];
   const isRTL = lang === "ar";
 
-  const step1Schema = getStep1Schema(l);
-  const step2Schema = completeMode ? getStep2CompleteSchema(l) : getStep2Schema(l);
+  const step1Schema = completeMode ? getStep1CompleteSchema(l) : getStep1Schema(l);
+  const step2Schema = getStep2Schema(l);
 
   const form = useForm({
     resolver: async (values, context, options) => {
@@ -227,7 +227,7 @@ export function RegisterWizard({ onSuccess, lang = "ar", completeMode = false }:
   // Prefill existing user data when completing a profile
   useEffect(() => {
     if (completeMode && user) {
-      const prefix = (user.email || "").split("@")[0].toLowerCase();
+      const prefix = (user.email || "").split("@")[0].toLowerCase().replace(/[^a-z0-9_]/g, "_");
       form.setValue("username", user.username && !user.username.includes("@") ? user.username : (prefix.length >= 3 ? prefix : `user_${user.id}`));
       form.setValue("fullName", user.fullName || "");
       form.setValue("email", user.email || "");
@@ -271,6 +271,7 @@ export function RegisterWizard({ onSuccess, lang = "ar", completeMode = false }:
       if (completeMode) {
         await completeProfile({
           role: "client",
+          fullName: formValues.fullName,
           username: formValues.username.trim().toLowerCase(),
           phone: formValues.phone || null,
           city: formValues.city,
@@ -298,44 +299,42 @@ export function RegisterWizard({ onSuccess, lang = "ar", completeMode = false }:
   return (
     <div className="w-full" dir={isRTL ? "rtl" : "ltr"}>
       {/* ── Progress Steps ── */}
-      {!completeMode && (
-        <div className="flex items-center justify-center gap-2 mb-6">
-          {[1, 2].map((s) => (
-            <div key={s} className="flex items-center gap-2">
-              <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${
-                  step > s
-                    ? "bg-emerald-500 text-white"
-                    : step === s
-                    ? "text-white shadow-lg"
-                    : "bg-gray-100 dark:bg-gray-800 text-gray-400"
-                }`}
-                style={step >= s ? { background: step > s ? undefined : "linear-gradient(135deg, hsl(183,100%,35%), hsl(200,90%,40%))" } : {}}
-              >
-                {step > s ? <Check className="w-3.5 h-3.5" /> : s}
-              </div>
-              {s < 2 && (
-                <div
-                  className={`w-10 h-0.5 rounded-full transition-all duration-500 ${
-                    step > s ? "bg-emerald-500" : "bg-gray-200 dark:bg-gray-700"
-                  }`}
-                />
-              )}
+      <div className="flex items-center justify-center gap-2 mb-6">
+        {[1, 2].map((s) => (
+          <div key={s} className="flex items-center gap-2">
+            <div
+              className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${
+                step > s
+                  ? "bg-emerald-500 text-white"
+                  : step === s
+                  ? "text-white shadow-lg"
+                  : "bg-gray-100 dark:bg-gray-800 text-gray-400"
+              }`}
+              style={step >= s ? { background: step > s ? undefined : "linear-gradient(135deg, hsl(183,100%,35%), hsl(200,90%,40%))" } : {}}
+            >
+              {step > s ? <Check className="w-3.5 h-3.5" /> : s}
             </div>
-          ))}
-        </div>
-      )}
+            {s < 2 && (
+              <div
+                className={`w-10 h-0.5 rounded-full transition-all duration-500 ${
+                  step > s ? "bg-emerald-500" : "bg-gray-200 dark:bg-gray-700"
+                }`}
+              />
+            )}
+          </div>
+        ))}
+      </div>
 
       {/* Step label */}
       <p className="text-center text-xs text-gray-500 mb-5 font-medium">
-        {completeMode ? l.completeTitle : (step === 1 ? l.step1 : l.step2)}
+        {step === 1 ? l.step1 : l.step2}
       </p>
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <AnimatePresence mode="wait">
             {/* ── STEP 1 ── */}
-            {!completeMode && step === 1 && (
+            {step === 1 && (
               <motion.div
                 key="step1"
                 initial={{ opacity: 0, x: 20 }}
@@ -407,12 +406,21 @@ export function RegisterWizard({ onSuccess, lang = "ar", completeMode = false }:
                   name="email"
                   render={({ field, fieldState }) => (
                     <FormItem>
-                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{l.email}</p>
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{l.email}</p>
+                        {completeMode && (
+                          <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
+                            <Check className="w-3 h-3 text-emerald-500" />
+                            {isRTL ? "مُؤكّد من Google" : lang === "fr" ? "Vérifié par Google" : "Google Verified"}
+                          </span>
+                        )}
+                      </div>
                       <FormControl>
                         <Input
                           id="reg-email"
                           type="email"
                           placeholder="you@example.com"
+                          isDisabled={completeMode}
                           startContent={<Mail className="w-4 h-4 text-gray-400" />}
                           value={field.value}
                           onValueChange={(val) => field.onChange(val)}
@@ -424,70 +432,72 @@ export function RegisterWizard({ onSuccess, lang = "ar", completeMode = false }:
                   )}
                 />
 
-                {/* Password */}
-                <div className="grid grid-cols-2 gap-3">
-                  <FormField
-                    control={form.control}
-                    name="password"
-                    render={({ field, fieldState }) => (
-                      <FormItem>
-                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{l.password}</p>
-                        <FormControl>
-                          <Input
-                            id="reg-password"
-                            type={showPassword ? "text" : "password"}
-                            placeholder="••••••"
-                            startContent={<Lock className="w-4 h-4 text-gray-400" />}
-                            endContent={
-                              <button
-                                type="button"
-                                onClick={() => setShowPassword(!showPassword)}
-                                className="text-gray-400 hover:text-gray-600"
-                              >
-                                {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                              </button>
-                            }
-                            value={field.value}
-                            onValueChange={(val) => field.onChange(val)}
-                            isInvalid={!!fieldState.error}
-                            errorMessage={fieldState.error?.message}
-                          />
-                        </FormControl>
-                        <PasswordStrength password={field.value || ""} lang={lang} />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="confirmPassword"
-                    render={({ field, fieldState }) => (
-                      <FormItem>
-                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{l.confirm}</p>
-                        <FormControl>
-                          <Input
-                            id="reg-confirm"
-                            type={showConfirm ? "text" : "password"}
-                            placeholder="••••••"
-                            startContent={<Lock className="w-4 h-4 text-gray-400" />}
-                            endContent={
-                              <button
-                                type="button"
-                                onClick={() => setShowConfirm(!showConfirm)}
-                                className="text-gray-400 hover:text-gray-600"
-                              >
-                                {showConfirm ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                              </button>
-                            }
-                            value={field.value}
-                            onValueChange={(val) => field.onChange(val)}
-                            isInvalid={!!fieldState.error}
-                            errorMessage={fieldState.error?.message}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                {/* Password fields - hidden in completeMode */}
+                {!completeMode && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <FormField
+                      control={form.control}
+                      name="password"
+                      render={({ field, fieldState }) => (
+                        <FormItem>
+                          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{l.password}</p>
+                          <FormControl>
+                            <Input
+                              id="reg-password"
+                              type={showPassword ? "text" : "password"}
+                              placeholder="••••••"
+                              startContent={<Lock className="w-4 h-4 text-gray-400" />}
+                              endContent={
+                                <button
+                                  type="button"
+                                  onClick={() => setShowPassword(!showPassword)}
+                                  className="text-gray-400 hover:text-gray-600"
+                                >
+                                  {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                </button>
+                              }
+                              value={field.value}
+                              onValueChange={(val) => field.onChange(val)}
+                              isInvalid={!!fieldState.error}
+                              errorMessage={fieldState.error?.message}
+                            />
+                          </FormControl>
+                          <PasswordStrength password={field.value || ""} lang={lang} />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="confirmPassword"
+                      render={({ field, fieldState }) => (
+                        <FormItem>
+                          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{l.confirm}</p>
+                          <FormControl>
+                            <Input
+                              id="reg-confirm"
+                              type={showConfirm ? "text" : "password"}
+                              placeholder="••••••"
+                              startContent={<Lock className="w-4 h-4 text-gray-400" />}
+                              endContent={
+                                <button
+                                  type="button"
+                                  onClick={() => setShowConfirm(!showConfirm)}
+                                  className="text-gray-400 hover:text-gray-600"
+                                >
+                                  {showConfirm ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                </button>
+                              }
+                              value={field.value}
+                              onValueChange={(val) => field.onChange(val)}
+                              isInvalid={!!fieldState.error}
+                              errorMessage={fieldState.error?.message}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
 
                 <Button
                   id="reg-next"
@@ -512,42 +522,6 @@ export function RegisterWizard({ onSuccess, lang = "ar", completeMode = false }:
                 transition={{ duration: 0.2 }}
                 className="space-y-4"
               >
-                {completeMode && (
-                  <FormField
-                    control={form.control}
-                    name="username"
-                    render={({ field, fieldState }) => (
-                      <FormItem>
-                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{l.username}</p>
-                        <FormControl>
-                          <Input
-                            id="reg-complete-username"
-                            placeholder="khidmati_user"
-                            startContent={<AtSign className="w-4 h-4 text-gray-400" />}
-                            endContent={
-                              <div className="flex items-center">
-                                {usernameStatus === "checking" && <Loader2 className="w-4 h-4 animate-spin text-gray-400" />}
-                                {usernameStatus === "available" && <Check className="w-4 h-4 text-emerald-500" />}
-                                {usernameStatus === "taken" && <X className="w-4 h-4 text-red-500" />}
-                              </div>
-                            }
-                            value={field.value}
-                            onValueChange={(val) => field.onChange(val)}
-                            isInvalid={!!fieldState.error}
-                            errorMessage={fieldState.error?.message}
-                          />
-                        </FormControl>
-                        {usernameStatus === "taken" && (
-                          <p className="text-xs text-red-500 mt-1">{l.usernameTaken}</p>
-                        )}
-                        {usernameStatus === "available" && (
-                          <p className="text-xs text-emerald-500 mt-1">{l.usernameAvailable}</p>
-                        )}
-                      </FormItem>
-                    )}
-                  />
-                )}
-
                 {/* Phone */}
                 <FormField
                   control={form.control}
@@ -611,22 +585,20 @@ export function RegisterWizard({ onSuccess, lang = "ar", completeMode = false }:
                 )}
 
                 <div className="flex gap-3">
-                  {!completeMode && (
-                    <Button
-                      id="reg-back"
-                      type="button"
-                      variant="bordered"
-                      className="flex-1 h-11 rounded-xl"
-                      onPress={prevStep}
-                    >
-                      {isRTL ? <ArrowRight className="w-4 h-4 ml-2" /> : <ArrowLeft className="w-4 h-4 mr-2" />}
-                      {l.back}
-                    </Button>
-                  )}
+                  <Button
+                    id="reg-back"
+                    type="button"
+                    variant="bordered"
+                    className="flex-1 h-11 rounded-xl"
+                    onPress={prevStep}
+                  >
+                    {isRTL ? <ArrowRight className="w-4 h-4 ml-2" /> : <ArrowLeft className="w-4 h-4 mr-2" />}
+                    {l.back}
+                  </Button>
                   <Button
                     id="reg-submit"
                     type="submit"
-                    className={`${completeMode ? "w-full" : "flex-1"} h-11 rounded-xl font-semibold`}
+                    className="flex-1 h-11 rounded-xl font-semibold"
                     style={{ background: "linear-gradient(135deg, hsl(183,100%,35%), hsl(200,90%,40%))" }}
                     isDisabled={completeMode ? isCompleting : isRegistering}
                     isLoading={completeMode ? isCompleting : isRegistering}

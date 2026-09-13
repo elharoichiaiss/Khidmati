@@ -137,16 +137,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   );
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] flex flex-col md:flex-row">
+    <div className="min-h-screen bg-[#f8fafc] dark:bg-black flex flex-col md:flex-row overflow-x-hidden" dir="rtl">
       {/* Mobile Header */}
-      <div className="md:hidden flex items-center justify-between p-4 bg-white border-b border-gray-100 sticky top-0 z-40 shadow-sm">
+      <div className="md:hidden flex items-center justify-between p-4 bg-white dark:bg-zinc-900 border-b border-gray-100 dark:border-zinc-800 sticky top-0 z-40 shadow-sm w-full">
         <div className="flex items-center gap-2.5">
           <img
             src="/logo.png"
             alt="Logo"
             className="w-8 h-8 rounded-xl object-cover"
           />
-          <span className="font-extrabold text-gray-900">Khidmati Admin</span>
+          <span className="font-extrabold text-gray-900 dark:text-white text-base">Khidmati Admin</span>
         </div>
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>
@@ -154,22 +154,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <Menu className="h-5 w-5" />
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="p-0 w-72 border-0">
+          <SheetContent side="right" className="p-0 w-72 border-0">
             <NavContent />
           </SheetContent>
         </Sheet>
       </div>
 
       {/* Desktop Sidebar */}
-      <div className="hidden md:flex w-[260px] flex-col fixed inset-y-0 z-30">
+      <div className="hidden md:flex w-[260px] flex-col fixed inset-y-0 right-0 z-30">
         <NavContent />
       </div>
 
       {/* Main content */}
-      <div className="md:pl-[260px] flex flex-col flex-1 min-w-0">
-        <main className="flex-1 w-full">
-          <div className="py-6 md:py-10">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-10">
+      <div className="md:pr-[260px] flex flex-col flex-1 min-w-0 w-full overflow-x-hidden">
+        <main className="flex-1 w-full max-w-full overflow-x-hidden">
+          <div className="py-4 md:py-10">
+            <div className="max-w-7xl mx-auto px-3 sm:px-6 md:px-10">
               {children}
             </div>
           </div>

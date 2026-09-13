@@ -128,24 +128,24 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <div className="bg-zinc-50 dark:bg-black min-h-screen py-10" dir="rtl">
-      <div className="container mx-auto px-4 max-w-7xl pb-24 space-y-8">
+    <div className="bg-zinc-50 dark:bg-black min-h-screen py-4 md:py-10 max-w-full overflow-x-hidden" dir="rtl">
+      <div className="container mx-auto px-2 sm:px-4 max-w-7xl pb-24 space-y-6 md:space-y-8 w-full max-w-full overflow-x-hidden">
 
         {/* Header */}
-        <div className="flex items-center gap-4 mb-2">
-          <div className="bg-blue-50 dark:bg-blue-950/40 rounded-2xl p-4">
-            <Shield className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+        <div className="flex items-center gap-3 md:gap-4 mb-2">
+          <div className="bg-blue-50 dark:bg-blue-950/40 rounded-2xl p-3 md:p-4 shrink-0">
+            <Shield className="w-6 h-6 md:w-8 md:h-8 text-blue-600 dark:text-blue-400" />
           </div>
-          <h1 className="text-3xl md:text-4xl font-black text-zinc-900 dark:text-white">{t("adminDashboard")}</h1>
+          <h1 className="text-2xl md:text-4xl font-black text-zinc-900 dark:text-white tracking-tight">{t("adminDashboard")}</h1>
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex flex-wrap gap-2 p-2 bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800/80 rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.03)] w-max">
+        <div className="flex items-center gap-1.5 md:gap-2 p-1.5 md:p-2 bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800/80 rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.03)] w-full max-w-full overflow-x-auto scrollbar-none whitespace-nowrap">
           {TABS.map((tabItem) => (
             <button
               key={tabItem.key}
               onClick={() => setTab(tabItem.key)}
-              className={`px-6 py-3 rounded-2xl text-sm font-bold transition-all ${
+              className={`px-4 md:px-6 py-2 md:py-3 rounded-xl md:rounded-2xl text-xs md:text-sm font-bold transition-all shrink-0 whitespace-nowrap ${
                 tab === tabItem.key 
                   ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-sm" 
                   : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800"
@@ -158,14 +158,14 @@ export default function AdminDashboard() {
 
         {/* ────────── STATS TAB ────────── */}
         {tab === "stats" && (
-          <div className="space-y-8 animate-in">
+          <div className="space-y-6 md:space-y-8 animate-in">
             <div className="flex items-center gap-3">
-              <div className="bg-blue-50 dark:bg-blue-950/40 rounded-2xl p-3">
-                <Activity className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+              <div className="bg-blue-50 dark:bg-blue-950/40 rounded-2xl p-2.5 md:p-3 shrink-0">
+                <Activity className="w-5 h-5 md:w-6 md:h-6 text-blue-600 dark:text-blue-400" />
               </div>
-              <h2 className="text-3xl md:text-4xl font-black text-zinc-900 dark:text-white">{t("overviewLabel")}</h2>
+              <h2 className="text-2xl md:text-4xl font-black text-zinc-900 dark:text-white">{t("overviewLabel")}</h2>
             </div>
-            <div className="grid gap-5 grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+            <div className="grid gap-3 md:gap-5 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
               {statCards.map((s) => (
                 <div key={s.label} className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800/80 shadow-[0_10px_30px_rgba(0,0,0,0.03)] p-6" style={{ borderRadius: "28px" }}>
                   <div className="flex items-center gap-4">

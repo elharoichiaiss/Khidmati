@@ -124,6 +124,7 @@ export const api = {
       path: '/api/complete-profile',
       input: z.object({
         role: z.enum(["client", "provider"]),
+        fullName: z.string().min(2).optional(),
         username: z.string().min(3).max(20).optional(),
         phone: z.string().nullable().optional(),
         city: z.string().min(1),
