@@ -20,31 +20,51 @@ export type AuthUser = typeof users.$inferSelect & {
 
 function mapSupabaseUserToKhidmatiUser(sbUser: any): AuthUser | null {
   if (!sbUser) return null;
+  const meta = sbUser.user_metadata || {};
+  let savedCity = meta.city || null;
+  let savedPhone = meta.phone || sbUser.phone || null;
+  let savedUsername = meta.username || null;
+  let savedRole = meta.role || "client";
+
+  try {
+    const saved = localStorage.getItem("khidmati_user_profile");
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed.email === sbUser.email || parsed.googleId === sbUser.id) {
+        if (!savedCity) savedCity = parsed.city;
+        if (!savedPhone) savedPhone = parsed.phone;
+        if (!savedUsername) savedUsername = parsed.username;
+        if (!savedRole || savedRole === "client") savedRole = parsed.role || savedRole;
+      }
+    }
+  } catch {}
+
   return {
     id: 1,
-    username: sbUser.email || sbUser.id,
+    username: savedUsername || sbUser.email || sbUser.id,
     password: null,
     googleId: sbUser.id,
     email: sbUser.email || null,
-    phone: sbUser.phone || null,
-    city: null,
+    phone: savedPhone,
+    city: savedCity,
     status: "active",
     fullName:
-      sbUser.user_metadata?.full_name ||
-      sbUser.user_metadata?.name ||
+      meta.full_name ||
+      meta.name ||
+      meta.fullName ||
       sbUser.email?.split("@")[0] ||
       "مستخدم",
     avatarUrl:
-      sbUser.user_metadata?.avatar_url ||
-      sbUser.user_metadata?.picture ||
+      meta.avatar_url ||
+      meta.picture ||
       null,
-    role: (sbUser.user_metadata?.role as "client" | "provider" | "admin") || "client",
+    role: (savedRole as "client" | "provider" | "admin") || "client",
     isVerified: true,
     isBanned: false,
     banReason: null,
     banExpiresAt: null,
     createdAt: sbUser.created_at ? new Date(sbUser.created_at) : new Date(),
-    providerProfile: null,
+    providerProfile: meta.providerProfile || null,
   } as any;
 }
 
@@ -224,6 +244,9 @@ export function useAuth() {
     onSuccess: (data: any) => {
       queryClient.setQueryData([api.auth.me.path], data);
       localStorage.setItem("app_mode", data.role === "provider" ? "provider" : "client");
+      try {
+        localStorage.setItem("khidmati_user_profile", JSON.stringify(data));
+      } catch {}
     },
   });
 
