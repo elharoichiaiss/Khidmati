@@ -1,377 +1,644 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { motion, AnimatePresence } from "framer-motion";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Upload, MapPin, Check, ArrowRight, ArrowLeft } from "lucide-react";
+import { Button, Input, Select, SelectItem } from "@heroui/react";
+import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
+import { Loader2, ArrowRight, ArrowLeft, Check, X, Eye, EyeOff, User, Briefcase, Mail, AtSign, Lock, Phone, MapPin } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
-import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
-import "leaflet/dist/leaflet.css";
-import L from "leaflet";
 import { MOROCCAN_CITIES } from "@shared/constants";
 
-// --- Leaflet Icon Fix ---
-import icon from 'leaflet/dist/images/marker-icon.png';
-import iconShadow from 'leaflet/dist/images/marker-shadow.png';
-
-let DefaultIcon = L.icon({
-    iconUrl: icon,
-    shadowUrl: iconShadow,
-    iconSize: [25, 41],
-    iconAnchor: [12, 41]
-});
-L.Marker.prototype.options.icon = DefaultIcon;
-
-// --- Schemas ---
-
-const step1Schema = z.object({
-    role: z.enum(["client", "provider"]),
-    fullName: z.string().min(3, "Name is too short"),
-    username: z.string().min(3, "Username must be at least 3 chars"),
-    email: z.string().email("Invalid email address"),
-    password: z.string().min(6, "Password must be at least 6 chars"),
-    confirmPassword: z.string()
-}).refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords must match",
-    path: ["confirmPassword"],
-});
-
-const step2Schema = z.object({
-    phone: z.string().optional(),
-    bio: z.string().optional(),
-});
-
-const createStep3Schema = (role: string) => {
-    return z.object({
-        city: z.string().min(1, "Please select a city"),
-        serviceCategory: role === 'provider'
-            ? z.string().min(1, "Category is required")
-            : z.string().optional()
-    });
+// ──────────────── Translations ────────────────
+const tr = {
+  ar: {
+    step1: "المعلومات الشخصية",
+    step2: "الموقع ورقم الهاتف",
+    completeTitle: "أكمل معلوماتك",
+    fullName: "الاسم الكامل",
+    username: "اسم المستخدم",
+    email: "البريد الإلكتروني",
+    password: "كلمة المرور",
+    confirm: "تأكيد كلمة المرور",
+    role: "أريد أن",
+    hire: "أوظّف حرفياً",
+    work: "أعمل كحرفي",
+    phone: "رقم الهاتف (اختياري)",
+    city: "المدينة",
+    category: "التخصص",
+    next: "التالي",
+    back: "رجوع",
+    create: "إنشاء الحساب",
+    finish: "إكمال الحساب",
+    usernameTaken: "اسم المستخدم مستخدم بالفعل",
+    usernameAvailable: "اسم المستخدم متاح",
+    phonePlaceholder: "+212 6XX XXX XXX",
+    selectCity: "اختر مدينتك",
+    selectCategory: "اختر تخصصك",
+    strengthWeak: "ضعيف",
+    strengthFair: "مقبول",
+    strengthGood: "جيد",
+    strengthStrong: "قوي",
+    strengthVStrong: "قوي جداً",
+    strengthLabel: "قوة كلمة المرور:",
+    categories: ["سباكة", "كهرباء", "تنظيف", "تجميل", "نقل الأثاث", "نجارة", "دهان", "تكييف", "حدادة", "أخرى"],
+    nameTooShort: "الاسم قصير جداً",
+    usernameTooShort: "يجب أن يكون 3 أحرف على الأقل",
+    usernameTooLong: "الحد الأقصى 20 حرفاً",
+    invalidEmail: "أدخل بريداً إلكترونياً صحيحاً",
+    passwordTooShort: "يجب أن تكون 6 أحرف على الأقل",
+    passwordsMustMatch: "كلمتا المرور غير متطابقتين",
+  },
+  fr: {
+    step1: "Informations personnelles",
+    step2: "Localisation et téléphone",
+    completeTitle: "Complétez vos informations",
+    fullName: "Nom complet",
+    username: "Nom d'utilisateur",
+    email: "Adresse e-mail",
+    password: "Mot de passe",
+    confirm: "Confirmer le mot de passe",
+    role: "Je veux",
+    hire: "Embaucher un artisan",
+    work: "Travailler comme artisan",
+    phone: "Téléphone (optionnel)",
+    city: "Ville",
+    category: "Spécialité",
+    next: "Suivant",
+    back: "Retour",
+    create: "Créer le compte",
+    finish: "Terminer le compte",
+    usernameTaken: "Ce nom d'utilisateur est déjà pris",
+    usernameAvailable: "Nom d'utilisateur disponible",
+    phonePlaceholder: "+212 6XX XXX XXX",
+    selectCity: "Choisir votre ville",
+    selectCategory: "Choisir votre spécialité",
+    strengthWeak: "Faible",
+    strengthFair: "Acceptable",
+    strengthGood: "Bien",
+    strengthStrong: "Fort",
+    strengthVStrong: "Très fort",
+    strengthLabel: "Force du mot de passe:",
+    categories: ["Plomberie", "Électricité", "Nettoyage", "Beauté", "Déménagement", "Menuiserie", "Peinture", "Climatisation", "Ferronnerie", "Autre"],
+    nameTooShort: "Le nom est trop court",
+    usernameTooShort: "Au moins 3 caractères",
+    usernameTooLong: "Maximum 20 caractères",
+    invalidEmail: "Entrez un e-mail valide",
+    passwordTooShort: "Au moins 6 caractères",
+    passwordsMustMatch: "Les mots de passe ne correspondent pas",
+  },
+  en: {
+    step1: "Personal Information",
+    step2: "Location & Phone",
+    completeTitle: "Complete your information",
+    fullName: "Full Name",
+    username: "Username",
+    email: "Email Address",
+    password: "Password",
+    confirm: "Confirm Password",
+    role: "I want to",
+    hire: "Hire a craftsman",
+    work: "Work as a craftsman",
+    phone: "Phone (optional)",
+    city: "City",
+    category: "Specialty",
+    next: "Next",
+    back: "Back",
+    create: "Create Account",
+    finish: "Finish",
+    usernameTaken: "Username is already taken",
+    usernameAvailable: "Username is available",
+    phonePlaceholder: "+212 6XX XXX XXX",
+    selectCity: "Select your city",
+    selectCategory: "Select your specialty",
+    strengthWeak: "Weak",
+    strengthFair: "Fair",
+    strengthGood: "Good",
+    strengthStrong: "Strong",
+    strengthVStrong: "Very Strong",
+    strengthLabel: "Password strength:",
+    categories: ["Plumbing", "Electrical", "Cleaning", "Beauty", "Moving", "Carpentry", "Painting", "AC Repair", "Metalwork", "Other"],
+    nameTooShort: "Name is too short",
+    usernameTooShort: "At least 3 characters",
+    usernameTooLong: "Max 20 characters",
+    invalidEmail: "Enter a valid email",
+    passwordTooShort: "At least 6 characters",
+    passwordsMustMatch: "Passwords must match",
+  },
 };
 
-// Step 4 is specialized for working hours
-const workingHoursSchema = z.record(z.string(), z.object({
-    active: z.boolean(),
-    start: z.string(),
-    end: z.string()
-}));
+// ──────────────── Password Strength ────────────────
+function PasswordStrength({ password, lang }: { password: string; lang: "ar" | "fr" | "en" }) {
+  const l = tr[lang];
+  const getStrength = (p: string) => {
+    let score = 0;
+    if (p.length >= 6) score++;
+    if (p.length >= 10) score++;
+    if (/[A-Z]/.test(p)) score++;
+    if (/[0-9]/.test(p)) score++;
+    if (/[^A-Za-z0-9]/.test(p)) score++;
+    const labels = [l.strengthWeak, l.strengthFair, l.strengthGood, l.strengthStrong, l.strengthVStrong];
+    const colors = ["bg-red-500", "bg-orange-400", "bg-yellow-400", "bg-emerald-400", "bg-emerald-500"];
+    const textColors = ["text-red-500", "text-orange-400", "text-yellow-500", "text-emerald-500", "text-emerald-600"];
+    return { score: Math.min(score, 4), label: labels[Math.min(score, 4)], color: colors[Math.min(score, 4)], textColor: textColors[Math.min(score, 4)] };
+  };
+  const { score, label, color, textColor } = getStrength(password);
+  if (!password) return null;
+  return (
+    <div className="mt-2 space-y-1">
+      <div className="flex gap-1">
+        {[0, 1, 2, 3, 4].map((i) => (
+          <div
+            key={i}
+            className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${i <= score ? color : "bg-gray-200 dark:bg-gray-700"}`}
+          />
+        ))}
+      </div>
+      <p className="text-xs text-gray-500">
+        {l.strengthLabel} <span className={`font-semibold ${textColor}`}>{label}</span>
+      </p>
+    </div>
+  );
+}
 
-export function RegisterWizard({ onSuccess }: { onSuccess: () => void }) {
-    const [step, setStep] = useState(1);
-    const [previewImage, setPreviewImage] = useState<string | null>(null);
-    const [selectedFile, setSelectedFile] = useState<File | null>(null);
-    const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
-    const [currentRole, setCurrentRole] = useState<string>("client");
+// ──────────────── Schemas ────────────────
+const getStep1Schema = (l: any) => z.object({
+  fullName: z.string().min(3, l.nameTooShort || "Name is too short"),
+  username: z.string().min(3, l.usernameTooShort || "At least 3 characters").max(20, l.usernameTooLong || "Max 20 characters"),
+  email: z.string().email(l.invalidEmail || "Enter a valid email"),
+  password: z.string().min(6, l.passwordTooShort || "At least 6 characters"),
+  confirmPassword: z.string(),
+}).refine((d) => d.password === d.confirmPassword, {
+  message: l.passwordsMustMatch || "Passwords must match",
+  path: ["confirmPassword"],
+});
 
-    const { register: registerUser, isRegistering } = useAuth();
+const getStep2Schema = (l: any) => z.object({
+  phone: z.string().optional(),
+  city: z.string().min(1, l.selectCity || "Select your city"),
+});
 
-    const form = useForm({
-        resolver: async (values, context, options) => {
-            if (step === 1) return zodResolver(step1Schema)(values, context, options);
-            if (step === 2) return zodResolver(step2Schema)(values, context, options);
-            if (step === 3) return zodResolver(createStep3Schema(values.role || "client"))(values, context, options);
-            return { values, errors: {} }; // No strict validation for Step 4 JSON yet
-        },
-        defaultValues: {
-            role: "client",
-            fullName: "",
-            username: "",
-            email: "",
-            password: "",
-            confirmPassword: "",
-            phone: "",
-            bio: "",
-            city: "",
-            serviceCategory: "",
-            workingHours: {
-                monday: { active: true, start: "09:00", end: "18:00" },
-                tuesday: { active: true, start: "09:00", end: "18:00" },
-                wednesday: { active: true, start: "09:00", end: "18:00" },
-                thursday: { active: true, start: "09:00", end: "18:00" },
-                friday: { active: true, start: "09:00", end: "18:00" },
-                saturday: { active: false, start: "09:00", end: "18:00" },
-                sunday: { active: false, start: "09:00", end: "18:00" }
-            }
-        },
-        mode: "onChange"
-    });
+const getStep2CompleteSchema = (l: any) => z.object({
+  username: z.string().min(3, l.usernameTooShort || "At least 3 characters").max(20, l.usernameTooLong || "Max 20 characters"),
+  phone: z.string().optional(),
+  city: z.string().min(1, l.selectCity || "Select your city"),
+});
 
-    const watchedRole = form.watch("role");
-    useEffect(() => {
-        if (watchedRole) setCurrentRole(watchedRole);
-    }, [watchedRole]);
+// ──────────────── Component ────────────────
+interface RegisterWizardProps {
+  onSuccess: () => void;
+  lang?: "ar" | "fr" | "en";
+  completeMode?: boolean;
+}
 
-    const steps = useMemo(() => {
-        const base = [
-            { id: 1, title: "Account", description: "Choose your role & credentials" },
-            { id: 2, title: "Profile", description: "Add a photo & details" },
-            { id: 3, title: "Location", description: "Where are you located?" }
-        ];
-        if (currentRole === 'provider') {
-            base.push({ id: 4, title: "Hours", description: "When do you work?" });
-        }
-        return base;
-    }, [currentRole]);
+export function RegisterWizard({ onSuccess, lang = "ar", completeMode = false }: RegisterWizardProps) {
+  const [step, setStep] = useState(completeMode ? 2 : 1);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const { user, register: registerUser, isRegistering, completeProfile, isCompleting } = useAuth();
+  const [usernameStatus, setUsernameStatus] = useState<"idle" | "checking" | "available" | "taken">("idle");
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const l = tr[lang];
+  const isRTL = lang === "ar";
 
-    const nextStep = async () => {
-        const isValid = await form.trigger();
-        if (isValid) {
-            setStep(s => Math.min(s + 1, steps.length));
-        }
-    };
+  const step1Schema = getStep1Schema(l);
+  const step2Schema = completeMode ? getStep2CompleteSchema(l) : getStep2Schema(l);
 
-    const prevStep = () => setStep(s => Math.max(s - 1, 1));
+  const form = useForm({
+    resolver: async (values, context, options) => {
+      const schema = step === 1 ? step1Schema : step2Schema;
+      return zodResolver(schema)(values as any, context as any, options as any);
+    },
+    defaultValues: {
+      fullName: "",
+      username: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+      phone: "",
+      city: "",
+    },
+    mode: "onChange",
+  });
 
-    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            setSelectedFile(file);
-            const reader = new FileReader();
-            reader.onloadend = () => setPreviewImage(reader.result as string);
-            reader.readAsDataURL(file);
-        }
-    };
+  const watchedUsername = form.watch("username");
+  const watchedPassword = form.watch("password");
 
-    const LocationController = () => {
-        const map = useMapEvents({
-            click(e) {
-                setLocation(e.latlng);
-                form.clearErrors("root");
-            },
+  // Prefill existing user data when completing a profile
+  useEffect(() => {
+    if (completeMode && user) {
+      const prefix = (user.email || "").split("@")[0].toLowerCase();
+      form.setValue("username", user.username && !user.username.includes("@") ? user.username : (prefix.length >= 3 ? prefix : `user_${user.id}`));
+      form.setValue("fullName", user.fullName || "");
+      form.setValue("email", user.email || "");
+      form.setValue("phone", user.phone || "");
+      form.setValue("city", user.city || "");
+    }
+  }, [completeMode, user]);
+
+  // Debounced username check
+  useEffect(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    const val = watchedUsername?.trim().toLowerCase();
+    if (!val || val.length < 3) { setUsernameStatus("idle"); return; }
+    const usernameField = form.getFieldState("username");
+    if (usernameField?.error) { setUsernameStatus("idle"); return; }
+    setUsernameStatus("checking");
+    timerRef.current = setTimeout(async () => {
+      try {
+        const current = completeMode ? user?.username || "" : "";
+        const res = await fetch(`/api/check-username?username=${encodeURIComponent(val)}${current ? `&current=${encodeURIComponent(current)}` : ""}`);
+        const data = await res.json();
+        setUsernameStatus(data.available ? "available" : "taken");
+      } catch {
+        setUsernameStatus("idle");
+      }
+    }, 500);
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, [watchedUsername]);
+
+  const nextStep = async () => {
+    const valid = await form.trigger();
+    if (usernameStatus === "taken") return;
+    if (valid) setStep(2);
+  };
+
+  const prevStep = () => setStep(1);
+
+  const onSubmit = async (data: any) => {
+    try {
+      const formValues = form.getValues();
+      if (completeMode) {
+        await completeProfile({
+          role: "client",
+          username: formValues.username.trim().toLowerCase(),
+          phone: formValues.phone || null,
+          city: formValues.city,
         });
+        onSuccess();
+        return;
+      }
+      const payload: any = {
+        username: formValues.username.trim().toLowerCase(),
+        fullName: formValues.fullName,
+        email: formValues.email,
+        password: formValues.password,
+        role: "client",
+        phone: formValues.phone || null,
+        city: formValues.city,
+        language: lang,
+      };
+      await registerUser(payload);
+      onSuccess();
+    } catch (e: any) {
+      form.setError("root", { message: e.message });
+    }
+  };
 
-        const currentCity = form.watch("city");
-        useEffect(() => {
-            if (!currentCity) return;
-            const cityCoords: Record<string, [number, number]> = {
-                "Casablanca": [33.5731, -7.5898], "Rabat": [34.0209, -6.8416], "Marrakech": [31.6295, -7.9811],
-                "Tangier": [35.7595, -5.8340], "Agadir": [30.4278, -9.5981], "Fes": [34.0181, -5.0078],
-                "Meknes": [33.8732, -5.5407], "Oujda": [34.6814, -1.9086], "Tetouan": [35.5785, -5.3684], "Nador": [35.1681, -2.9335]
-            };
-            if (cityCoords[currentCity]) map.flyTo(cityCoords[currentCity], 13);
-        }, [currentCity, map]);
-
-        return location ? <Marker position={location} /> : null;
-    };
-
-    const onSubmit = async (data: any) => {
-        try {
-            const allData = form.getValues();
-            console.log("Frontend onSubmit allData:", allData);
-            console.log("Working Hours value:", allData.workingHours);
-
-            const formData = new FormData();
-            Object.keys(allData).forEach(key => {
-                // @ts-ignore
-                const value = allData[key];
-                if (key === 'workingHours') {
-                    const stringified = JSON.stringify(value);
-                    console.log("Appending workingHours as:", stringified);
-                    formData.append(key, stringified);
-                } else if (key !== 'confirmPassword' && value !== undefined && value !== null && value !== "") {
-                    formData.append(key, value);
-                }
-            });
-
-            if (selectedFile) formData.append("profileImage", selectedFile);
-            if (location) {
-                formData.append("latitude", location.lat.toString());
-                formData.append("longitude", location.lng.toString());
-            }
-
-            const res = await fetch("/api/register", {
-                method: "POST",
-                body: formData,
-            });
-
-            if (!res.ok) {
-                const error = await res.json();
-                throw new Error(error.message || "Registration failed");
-            }
-
-            // window.location.href = "/login"; // Removed to prevent full reload
-            onSuccess();
-        } catch (e: any) {
-            console.error(e);
-            form.setError("root", { message: e.message });
-        }
-    };
-
-    const handleKeyDown = async (e: React.KeyboardEvent) => {
-        if (e.target instanceof HTMLTextAreaElement) return;
-        if (e.key === "Enter") {
-            e.preventDefault();
-            if (step < steps.length) await nextStep();
-            else form.handleSubmit(onSubmit)();
-        }
-    };
-
-    return (
-        <div className="w-full max-w-lg mx-auto">
-            <div className="mb-8 relative">
-                <div className="absolute top-1/2 left-0 w-full h-1 bg-gray-200 -z-10 rounded-full"></div>
-                <motion.div
-                    className="absolute top-1/2 left-0 h-1 bg-primary -z-10 rounded-full"
-                    initial={{ width: "0%" }}
-                    animate={{ width: `${((step - 1) / (steps.length - 1)) * 100}%` }}
-                    transition={{ duration: 0.5 }}
+  return (
+    <div className="w-full" dir={isRTL ? "rtl" : "ltr"}>
+      {/* ── Progress Steps ── */}
+      {!completeMode && (
+        <div className="flex items-center justify-center gap-2 mb-6">
+          {[1, 2].map((s) => (
+            <div key={s} className="flex items-center gap-2">
+              <div
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${
+                  step > s
+                    ? "bg-emerald-500 text-white"
+                    : step === s
+                    ? "text-white shadow-lg"
+                    : "bg-gray-100 dark:bg-gray-800 text-gray-400"
+                }`}
+                style={step >= s ? { background: step > s ? undefined : "linear-gradient(135deg, hsl(183,100%,35%), hsl(200,90%,40%))" } : {}}
+              >
+                {step > s ? <Check className="w-3.5 h-3.5" /> : s}
+              </div>
+              {s < 2 && (
+                <div
+                  className={`w-10 h-0.5 rounded-full transition-all duration-500 ${
+                    step > s ? "bg-emerald-500" : "bg-gray-200 dark:bg-gray-700"
+                  }`}
                 />
-                <div className="flex justify-between">
-                    {steps.map((s) => (
-                        <div key={s.id} className="flex flex-col items-center gap-2 bg-white px-2">
-                            <motion.div
-                                className={`w-10 h-10 rounded-full flex items-center justify-center font-bold border-2 transition-colors ${step >= s.id ? "bg-primary text-white border-primary" : "bg-white text-gray-400 border-gray-200"}`}
-                                animate={{ scale: step === s.id ? 1.1 : 1 }}
-                            >
-                                {step > s.id ? <Check className="w-5 h-5" /> : s.id}
-                            </motion.div>
-                            <span className={`text-xs font-medium ${step >= s.id ? "text-primary" : "text-gray-400"}`}>{s.title}</span>
-                        </div>
-                    ))}
-                </div>
+              )}
             </div>
-
-            <Card className="shadow-xl bg-white/95 backdrop-blur border-t-4 border-t-primary">
-                <Form {...form}>
-                    <form className="space-y-4" onKeyDown={handleKeyDown}>
-                        <CardHeader>
-                            <CardTitle>{steps[step - 1].title}</CardTitle>
-                            <CardDescription>{steps[step - 1].description}</CardDescription>
-                        </CardHeader>
-
-                        <CardContent className="min-h-[300px]">
-                            <AnimatePresence mode="wait">
-                                {step === 1 && (
-                                    <motion.div key="step1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
-                                        <FormField
-                                            control={form.control}
-                                            name="role"
-                                            render={({ field }) => (
-                                                <FormItem>
-                                                    <div className="flex bg-secondary p-1 rounded-lg">
-                                                        <button type="button" className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${field.value === 'client' ? 'bg-white shadow text-primary' : 'text-gray-500 hover:text-gray-900'}`} onClick={() => field.onChange('client')}>I want to Hire</button>
-                                                        <button type="button" className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${field.value === 'provider' ? 'bg-white shadow text-primary' : 'text-gray-500 hover:text-gray-900'}`} onClick={() => field.onChange('provider')}>I want to Work</button>
-                                                    </div>
-                                                </FormItem>
-                                            )}
-                                        />
-                                        <FormField control={form.control} name="fullName" render={({ field }) => (<FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="John Doe" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                        <FormField control={form.control} name="username" render={({ field }) => (<FormItem><FormLabel>Username</FormLabel><FormControl><Input placeholder="johndoe" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                        <FormField control={form.control} name="email" render={({ field }) => (<FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" placeholder="john@example.com" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <FormField control={form.control} name="password" render={({ field }) => (<FormItem><FormLabel>Password</FormLabel><FormControl><Input type="password" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                            <FormField control={form.control} name="confirmPassword" render={({ field }) => (<FormItem><FormLabel>Confirm</FormLabel><FormControl><Input type="password" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                        </div>
-                                    </motion.div>
-                                )}
-
-                                {step === 2 && (
-                                    <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
-                                        <div className="flex flex-col items-center gap-4">
-                                            <div className="relative w-32 h-32 rounded-full bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden hover:border-primary transition-colors cursor-pointer group">
-                                                {previewImage ? <img src={previewImage} alt="Profile" className="w-full h-full object-cover" /> : <Upload className="w-8 h-8 text-gray-400 group-hover:text-primary transition-colors" />}
-                                                <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleImageChange} />
-                                            </div>
-                                            <span className="text-sm text-muted-foreground">Tap to upload profile picture</span>
-                                        </div>
-                                        <FormField control={form.control} name="phone" render={({ field }) => (<FormItem><FormLabel>Phone Number</FormLabel><FormControl><Input type="tel" placeholder="+212..." {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                        {currentRole === 'provider' && (
-                                            <FormField control={form.control} name="bio" render={({ field }) => (<FormItem><FormLabel>Short Bio</FormLabel><FormControl><Textarea placeholder="Tell clients about your experience..." {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                        )}
-                                    </motion.div>
-                                )}
-
-                                {step === 3 && (
-                                    <motion.div key="step3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
-                                        {currentRole === 'provider' && (
-                                            <FormField control={form.control} name="serviceCategory" render={({ field }) => (
-                                                <FormItem><FormLabel>Service Category</FormLabel><Select onValueChange={(val) => { field.onChange(val); form.clearErrors("serviceCategory"); }} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select Category" /></SelectTrigger></FormControl><SelectContent>{["Plumbing", "Electrician", "Cleaning", "Beauty", "Moving"].map(cat => (<SelectItem key={cat} value={cat}>{cat}</SelectItem>))}</SelectContent></Select><FormMessage /></FormItem>
-                                            )} />
-                                        )}
-                                        <FormField control={form.control} name="city" render={({ field }) => (
-                                            <FormItem><FormLabel>City</FormLabel><Select onValueChange={(val) => { field.onChange(val); form.clearErrors("city"); }} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select City" /></SelectTrigger></FormControl><SelectContent>{MOROCCAN_CITIES.map(city => <SelectItem key={city} value={city}>{city}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
-                                        )} />
-                                        <div className="space-y-2">
-                                            <FormLabel>Pin Exact Location</FormLabel>
-                                            <div className="h-[200px] w-full rounded-lg overflow-hidden border relative z-0">
-                                                <MapContainer key="register-map" center={[33.5731, -7.5898]} zoom={13} style={{ height: "100%", width: "100%" }}><TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" /><LocationController /></MapContainer>
-                                            </div>
-                                            <p className="text-xs text-muted-foreground"><MapPin className="w-3 h-3 inline mr-1" /> Tap map to set location</p>
-                                        </div>
-                                    </motion.div>
-                                )}
-
-                                {step === 4 && currentRole === 'provider' && (
-                                    <motion.div key="step4" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
-                                        <div className="grid gap-3">
-                                            {Object.entries(form.watch("workingHours")).map(([day, hours]: [string, any]) => (
-                                                <div key={day} className="flex items-center justify-between p-2 rounded-md hover:bg-gray-50 border border-gray-100">
-                                                    <div className="flex items-center gap-3">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={hours.active}
-                                                            className="w-4 h-4 text-primary"
-                                                            onChange={(e) => {
-                                                                const currentHours = form.getValues("workingHours");
-                                                                // @ts-ignore
-                                                                form.setValue(`workingHours.${day}`, { ...hours, active: e.target.checked });
-                                                            }}
-                                                        />
-                                                        <span className="capitalize font-medium text-sm w-20">{day}</span>
-                                                    </div>
-                                                    {hours.active && (
-                                                        <div className="flex items-center gap-2">
-                                                            <Input
-                                                                type="time"
-                                                                className="h-8 w-24 text-xs"
-                                                                value={hours.start}
-                                                                onChange={(e) => {
-                                                                    // @ts-ignore
-                                                                    form.setValue(`workingHours.${day}`, { ...hours, start: e.target.value });
-                                                                }}
-                                                            />
-                                                            <span className="text-gray-400">-</span>
-                                                            <Input
-                                                                type="time"
-                                                                className="h-8 w-24 text-xs"
-                                                                value={hours.end}
-                                                                onChange={(e) => {
-                                                                    // @ts-ignore
-                                                                    form.setValue(`workingHours.${day}`, { ...hours, end: e.target.value });
-                                                                }}
-                                                            />
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
-
-                            {form.formState.errors.root && (
-                                <div className="text-red-500 text-sm font-medium p-2 bg-red-50 rounded mt-4">{form.formState.errors.root.message}</div>
-                            )}
-                        </CardContent>
-
-                        <CardFooter className="flex justify-between">
-                            {step > 1 ? <Button type="button" variant="outline" onClick={prevStep}><ArrowLeft className="w-4 h-4 mr-2" /> Back</Button> : <div></div>}
-                            {step < steps.length ? <Button type="button" onClick={nextStep}>Next <ArrowRight className="w-4 h-4 ml-2" /></Button> : (
-                                <Button type="button" onClick={form.handleSubmit(onSubmit)} className="bg-primary" disabled={form.formState.isSubmitting}>
-                                    {form.formState.isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Create Account"}
-                                </Button>
-                            )}
-                        </CardFooter>
-                    </form>
-                </Form>
-            </Card>
+          ))}
         </div>
-    );
+      )}
+
+      {/* Step label */}
+      <p className="text-center text-xs text-gray-500 mb-5 font-medium">
+        {completeMode ? l.completeTitle : (step === 1 ? l.step1 : l.step2)}
+      </p>
+
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <AnimatePresence mode="wait">
+            {/* ── STEP 1 ── */}
+            {!completeMode && step === 1 && (
+              <motion.div
+                key="step1"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.2 }}
+                className="space-y-4"
+              >
+                {/* Full Name */}
+                <FormField
+                  control={form.control}
+                  name="fullName"
+                  render={({ field, fieldState }) => (
+                    <FormItem>
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{l.fullName}</p>
+                      <FormControl>
+                        <Input
+                          id="reg-fullname"
+                          placeholder={isRTL ? "محمد أمين" : "Jean Dupont"}
+                          startContent={<User className="w-4 h-4 text-gray-400" />}
+                          value={field.value}
+                          onValueChange={(val) => field.onChange(val)}
+                          isInvalid={!!fieldState.error}
+                          errorMessage={fieldState.error?.message}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+
+                {/* Username */}
+                <FormField
+                  control={form.control}
+                  name="username"
+                  render={({ field, fieldState }) => (
+                    <FormItem>
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{l.username}</p>
+                      <FormControl>
+                        <Input
+                          id="reg-username"
+                          placeholder="khidmati_user"
+                          startContent={<AtSign className="w-4 h-4 text-gray-400" />}
+                          endContent={
+                            <div className="flex items-center">
+                              {usernameStatus === "checking" && <Loader2 className="w-4 h-4 animate-spin text-gray-400" />}
+                              {usernameStatus === "available" && <Check className="w-4 h-4 text-emerald-500" />}
+                              {usernameStatus === "taken" && <X className="w-4 h-4 text-red-500" />}
+                            </div>
+                          }
+                          value={field.value}
+                          onValueChange={(val) => field.onChange(val)}
+                          isInvalid={!!fieldState.error}
+                          errorMessage={fieldState.error?.message}
+                        />
+                      </FormControl>
+                      {usernameStatus === "taken" && (
+                        <p className="text-xs text-red-500 mt-1">{l.usernameTaken}</p>
+                      )}
+                      {usernameStatus === "available" && (
+                        <p className="text-xs text-emerald-500 mt-1">{l.usernameAvailable}</p>
+                      )}
+                    </FormItem>
+                  )}
+                />
+
+                {/* Email */}
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field, fieldState }) => (
+                    <FormItem>
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{l.email}</p>
+                      <FormControl>
+                        <Input
+                          id="reg-email"
+                          type="email"
+                          placeholder="you@example.com"
+                          startContent={<Mail className="w-4 h-4 text-gray-400" />}
+                          value={field.value}
+                          onValueChange={(val) => field.onChange(val)}
+                          isInvalid={!!fieldState.error}
+                          errorMessage={fieldState.error?.message}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+
+                {/* Password */}
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField
+                    control={form.control}
+                    name="password"
+                    render={({ field, fieldState }) => (
+                      <FormItem>
+                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{l.password}</p>
+                        <FormControl>
+                          <Input
+                            id="reg-password"
+                            type={showPassword ? "text" : "password"}
+                            placeholder="••••••"
+                            startContent={<Lock className="w-4 h-4 text-gray-400" />}
+                            endContent={
+                              <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="text-gray-400 hover:text-gray-600"
+                              >
+                                {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                              </button>
+                            }
+                            value={field.value}
+                            onValueChange={(val) => field.onChange(val)}
+                            isInvalid={!!fieldState.error}
+                            errorMessage={fieldState.error?.message}
+                          />
+                        </FormControl>
+                        <PasswordStrength password={field.value || ""} lang={lang} />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="confirmPassword"
+                    render={({ field, fieldState }) => (
+                      <FormItem>
+                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{l.confirm}</p>
+                        <FormControl>
+                          <Input
+                            id="reg-confirm"
+                            type={showConfirm ? "text" : "password"}
+                            placeholder="••••••"
+                            startContent={<Lock className="w-4 h-4 text-gray-400" />}
+                            endContent={
+                              <button
+                                type="button"
+                                onClick={() => setShowConfirm(!showConfirm)}
+                                className="text-gray-400 hover:text-gray-600"
+                              >
+                                {showConfirm ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                              </button>
+                            }
+                            value={field.value}
+                            onValueChange={(val) => field.onChange(val)}
+                            isInvalid={!!fieldState.error}
+                            errorMessage={fieldState.error?.message}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <Button
+                  id="reg-next"
+                  type="button"
+                  className="w-full h-11 rounded-xl font-semibold text-sm"
+                  style={{ background: "linear-gradient(135deg, hsl(183,100%,35%), hsl(200,90%,40%))" }}
+                  onPress={nextStep}
+                >
+                  {l.next}
+                  {isRTL ? <ArrowLeft className="w-4 h-4 mr-2" /> : <ArrowRight className="w-4 h-4 ml-2" />}
+                </Button>
+              </motion.div>
+            )}
+
+            {/* ── STEP 2 ── */}
+            {step === 2 && (
+              <motion.div
+                key="step2"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.2 }}
+                className="space-y-4"
+              >
+                {completeMode && (
+                  <FormField
+                    control={form.control}
+                    name="username"
+                    render={({ field, fieldState }) => (
+                      <FormItem>
+                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{l.username}</p>
+                        <FormControl>
+                          <Input
+                            id="reg-complete-username"
+                            placeholder="khidmati_user"
+                            startContent={<AtSign className="w-4 h-4 text-gray-400" />}
+                            endContent={
+                              <div className="flex items-center">
+                                {usernameStatus === "checking" && <Loader2 className="w-4 h-4 animate-spin text-gray-400" />}
+                                {usernameStatus === "available" && <Check className="w-4 h-4 text-emerald-500" />}
+                                {usernameStatus === "taken" && <X className="w-4 h-4 text-red-500" />}
+                              </div>
+                            }
+                            value={field.value}
+                            onValueChange={(val) => field.onChange(val)}
+                            isInvalid={!!fieldState.error}
+                            errorMessage={fieldState.error?.message}
+                          />
+                        </FormControl>
+                        {usernameStatus === "taken" && (
+                          <p className="text-xs text-red-500 mt-1">{l.usernameTaken}</p>
+                        )}
+                        {usernameStatus === "available" && (
+                          <p className="text-xs text-emerald-500 mt-1">{l.usernameAvailable}</p>
+                        )}
+                      </FormItem>
+                    )}
+                  />
+                )}
+
+                {/* Phone */}
+                <FormField
+                  control={form.control}
+                  name="phone"
+                  render={({ field, fieldState }) => (
+                    <FormItem>
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{l.phone}</p>
+                      <FormControl>
+                        <Input
+                          id="reg-phone"
+                          type="tel"
+                          placeholder={l.phonePlaceholder}
+                          startContent={<Phone className="w-4 h-4 text-gray-400" />}
+                          value={field.value}
+                          onValueChange={(val) => field.onChange(val)}
+                          isInvalid={!!fieldState.error}
+                          errorMessage={fieldState.error?.message}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+
+                {/* City */}
+                <FormField
+                  control={form.control}
+                  name="city"
+                  render={({ field, fieldState }) => (
+                    <FormItem>
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{l.city}</p>
+                      <FormControl>
+                        <Select
+                          id="reg-city"
+                          placeholder={l.selectCity}
+                          startContent={<MapPin className="w-4 h-4 text-gray-400" />}
+                          selectedKeys={field.value ? [field.value] : []}
+                          onSelectionChange={(keys) => {
+                            const value = Array.from(keys)[0] as string;
+                            if (value) field.onChange(value);
+                          }}
+                          isInvalid={!!fieldState.error}
+                          errorMessage={fieldState.error?.message}
+                        >
+                          {MOROCCAN_CITIES.map((c) => (
+                            <SelectItem key={c}>{c}</SelectItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+
+                {form.formState.errors.root && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="text-red-500 text-sm font-medium p-3 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-100 dark:border-red-800"
+                  >
+                    {form.formState.errors.root.message}
+                  </motion.div>
+                )}
+
+                <div className="flex gap-3">
+                  {!completeMode && (
+                    <Button
+                      id="reg-back"
+                      type="button"
+                      variant="bordered"
+                      className="flex-1 h-11 rounded-xl"
+                      onPress={prevStep}
+                    >
+                      {isRTL ? <ArrowRight className="w-4 h-4 ml-2" /> : <ArrowLeft className="w-4 h-4 mr-2" />}
+                      {l.back}
+                    </Button>
+                  )}
+                  <Button
+                    id="reg-submit"
+                    type="submit"
+                    className={`${completeMode ? "w-full" : "flex-1"} h-11 rounded-xl font-semibold`}
+                    style={{ background: "linear-gradient(135deg, hsl(183,100%,35%), hsl(200,90%,40%))" }}
+                    isDisabled={completeMode ? isCompleting : isRegistering}
+                    isLoading={completeMode ? isCompleting : isRegistering}
+                  >
+                    {isRegistering || isCompleting ? <Loader2 className="w-4 h-4 animate-spin" /> : (completeMode ? l.finish : l.create)}
+                  </Button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </form>
+      </Form>
+    </div>
+  );
 }

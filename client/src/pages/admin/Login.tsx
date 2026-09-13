@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { useAdminAuth } from "@/hooks/use-admin-auth";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { useLanguage } from "@/hooks/use-language";
 import { Lock } from "lucide-react";
+import { Button, Card, CardBody, Input } from "@heroui/react";
 
 export default function AdminLogin() {
     const { login, isLoggingIn } = useAdminAuth();
+    const { t } = useLanguage();
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
 
@@ -22,52 +22,57 @@ export default function AdminLogin() {
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50 text-foreground">
             <Card className="w-full max-w-md border-gray-200 bg-white shadow-xl">
-                <CardHeader className="text-center space-y-4 pb-8">
-                    <div className="mx-auto bg-primary/10 p-3 rounded-full w-fit border border-primary/20">
-                        <Lock className="w-8 h-8 text-primary" />
+                <CardBody className="p-8">
+                    <div className="text-center space-y-4 pb-4">
+                        <div className="mx-auto bg-primary/10 p-3 rounded-full w-fit border border-primary/20">
+                            <Lock className="w-8 h-8 text-primary" />
+                        </div>
+                        <div>
+                            <h2 className="text-2xl font-bold tracking-tight">{t("adminPortal")}</h2>
+                            <p className="text-muted-foreground text-sm">{t("authorizedPersonnelOnly")}</p>
+                        </div>
                     </div>
-                    <div>
-                        <CardTitle className="text-2xl font-bold tracking-tight">Admin Portal</CardTitle>
-                        <CardDescription className="text-muted-foreground">Authorized personnel only.</CardDescription>
-                    </div>
-                </CardHeader>
-                <CardContent>
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="space-y-2">
-                            <label className="text-sm font-medium text-foreground">Username</label>
+                            <label className="text-sm font-medium text-foreground">{t("username")}</label>
                             <Input
                                 type="text"
-                                placeholder="Admin Username"
+                                placeholder={t("username")}
                                 value={username}
-                                onChange={(e) => setUsername(e.target.value)}
-                                className="bg-white border-gray-200 placeholder:text-muted-foreground focus-visible:ring-primary"
+                                onValueChange={setUsername}
+                                variant="bordered"
+                                size="lg"
                                 required
                             />
                         </div>
                         <div className="space-y-2">
-                            <label className="text-sm font-medium text-foreground">Password</label>
+                            <label className="text-sm font-medium text-foreground">{t("password")}</label>
                             <Input
                                 type="password"
                                 placeholder="••••••••"
                                 value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                className="bg-white border-gray-200 placeholder:text-muted-foreground focus-visible:ring-primary"
+                                onValueChange={setPassword}
+                                variant="bordered"
+                                size="lg"
                                 required
                             />
                         </div>
                         <Button
                             type="submit"
-                            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-6 shadow-lg shadow-primary/20 transition-all"
-                            disabled={isLoggingIn}
+                            color="primary"
+                            size="lg"
+                            className="w-full font-semibold"
+                            isDisabled={isLoggingIn}
+                            isLoading={isLoggingIn}
                         >
-                            {isLoggingIn ? "Authenticating..." : "Access Dashboard"}
+                            {isLoggingIn ? t("authenticating") : t("accessDashboard")}
                         </Button>
                     </form>
-                </CardContent>
+                </CardBody>
             </Card>
 
             <div className="absolute bottom-8 text-center text-xs text-muted-foreground">
-                Khidmati Secure Admin Environment v1.0
+                {t("secureAdminEnv")}
             </div>
         </div>
     );

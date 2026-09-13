@@ -1,20 +1,113 @@
+import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, type LoginRequest, type InsertUser, type InsertProviderProfile } from "@shared/routes";
+import { api, type LoginRequest, type InsertUser, type InsertProviderProfile, users, providerProfiles } from "@shared/routes";
 import { useLocation } from "wouter";
+import { supabase } from "@/lib/supabase";
+
+export type CompleteProfileRequest = {
+  role: "client" | "provider";
+  username?: string;
+  phone?: string | null;
+  city: string;
+  serviceCategory?: string;
+  yearsOfExperience?: number;
+  bio?: string;
+};
+
+export type AuthUser = typeof users.$inferSelect & {
+  providerProfile?: typeof providerProfiles.$inferSelect | null;
+};
+
+function mapSupabaseUserToKhidmatiUser(sbUser: any): AuthUser | null {
+  if (!sbUser) return null;
+  return {
+    id: 1,
+    username: sbUser.email || sbUser.id,
+    password: null,
+    googleId: sbUser.id,
+    email: sbUser.email || null,
+    phone: sbUser.phone || null,
+    city: null,
+    status: "active",
+    fullName:
+      sbUser.user_metadata?.full_name ||
+      sbUser.user_metadata?.name ||
+      sbUser.email?.split("@")[0] ||
+      "مستخدم",
+    avatarUrl:
+      sbUser.user_metadata?.avatar_url ||
+      sbUser.user_metadata?.picture ||
+      null,
+    role: (sbUser.user_metadata?.role as "client" | "provider" | "admin") || "client",
+    isVerified: true,
+    isBanned: false,
+    banReason: null,
+    banExpiresAt: null,
+    createdAt: sbUser.created_at ? new Date(sbUser.created_at) : new Date(),
+    providerProfile: null,
+  } as any;
+}
+
+async function safeJsonResponse(res: Response, fallbackErrorMessage = "حدث خطأ غير متوقع") {
+  const contentType = res.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) {
+    const text = await res.text().catch(() => "");
+    if (text.trim().startsWith("<!DOCTYPE") || text.trim().startsWith("<html")) {
+      throw new Error("تعذر الاتصال بالخادم. يرجى التأكد من تشغيل الخادم بشكل صحيح.");
+    }
+    throw new Error(text || fallbackErrorMessage);
+  }
+  return res.json().catch(() => {
+    throw new Error(fallbackErrorMessage);
+  });
+}
 
 export function useAuth() {
   const queryClient = useQueryClient();
   const [_, setLocation] = useLocation();
 
-  const { data: user, isLoading, error } = useQuery({
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (session?.user) {
+          const mapped = mapSupabaseUserToKhidmatiUser(session.user);
+          queryClient.setQueryData([api.auth.me.path], mapped);
+        }
+      }
+    );
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [queryClient]);
+
+  const { data: user, isLoading, error } = useQuery<AuthUser | null>({
     queryKey: [api.auth.me.path],
     queryFn: async () => {
-      const res = await fetch(api.auth.me.path, { credentials: "include" });
-      if (res.status === 401) return null;
-      if (!res.ok) throw new Error("Failed to fetch user");
-      return api.auth.me.responses[200].parse(await res.json());
+      try {
+        const res = await fetch(api.auth.me.path, { credentials: "include" });
+        if (res.ok) {
+          const contentType = res.headers.get("content-type") || "";
+          if (contentType.includes("application/json")) {
+            const data = await res.json();
+            return api.auth.me.responses[200].parse(data);
+          }
+        }
+      } catch {
+        // Express backend might not be reachable on static hosting
+      }
+
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          return mapSupabaseUserToKhidmatiUser(session.user);
+        }
+      } catch {
+        // Fall through
+      }
+
+      return null;
     },
-    staleTime: Infinity,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
   const loginMutation = useMutation({
@@ -25,11 +118,20 @@ export function useAuth() {
         body: JSON.stringify(credentials),
         credentials: "include",
       });
+
+      const body = await safeJsonResponse(res, "فشل تسجيل الدخول");
+
       if (!res.ok) {
-        if (res.status === 401) throw new Error("Invalid username or password");
-        throw new Error("Login failed");
+        if (res.status === 403 && body?.deleted) {
+          const err: any = new Error(body.message || "Account deleted");
+          err.deleted = true;
+          err.reason = body.reason || "";
+          throw err;
+        }
+        if (res.status === 401) throw new Error(body?.message || "اسم المستخدم أو كلمة المرور غير صحيحة");
+        throw new Error(body?.message || "فشل تسجيل الدخول");
       }
-      return api.auth.login.responses[200].parse(await res.json());
+      return api.auth.login.responses[200].parse(body);
     },
     onSuccess: (data) => {
       queryClient.setQueryData([api.auth.me.path], data);
@@ -55,11 +157,11 @@ export function useAuth() {
         body: JSON.stringify(data),
         credentials: "include",
       });
+      const errorOrData = await safeJsonResponse(res, "فشل إنشاء الحساب");
       if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || "Registration failed");
+        throw new Error(errorOrData?.message || "Registration failed");
       }
-      return api.auth.register.responses[201].parse(await res.json());
+      return api.auth.register.responses[201].parse(errorOrData);
     },
     onSuccess: () => {
       // Auto login logic usually follows, or redirect to login
@@ -67,13 +169,94 @@ export function useAuth() {
     },
   });
 
-  const logoutMutation = useMutation({
-    mutationFn: async () => {
-      const res = await fetch(api.auth.logout.path, {
-        method: api.auth.logout.method,
+  const completeProfileMutation = useMutation({
+    mutationFn: async (data: CompleteProfileRequest) => {
+      // 1. Sync with Supabase Auth user_metadata
+      try {
+        const { data: updateRes, error: updateErr } = await supabase.auth.updateUser({
+          data: {
+            role: data.role,
+            username: data.username,
+            phone: data.phone,
+            city: data.city,
+            serviceCategory: data.serviceCategory,
+            yearsOfExperience: data.yearsOfExperience,
+            bio: data.bio,
+            providerProfile: data.role === "provider" ? {
+              serviceCategory: data.serviceCategory,
+              yearsOfExperience: data.yearsOfExperience,
+              bio: data.bio,
+            } : null,
+          },
+        });
+        if (updateRes?.user) {
+          const mapped = mapSupabaseUserToKhidmatiUser(updateRes.user);
+          if (mapped) {
+            queryClient.setQueryData([api.auth.me.path], mapped);
+          }
+        }
+      } catch (sbErr) {
+        console.warn("Supabase updateUser warning:", sbErr);
+      }
+
+      // 2. Try backend API
+      try {
+        const res = await fetch(api.auth.completeProfile.path, {
+          method: api.auth.completeProfile.method,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+          credentials: "include",
+        });
+        if (res.ok) {
+          return api.auth.completeProfile.responses[200].parse(await res.json());
+        }
+      } catch {}
+
+      // Fallback
+      const current = queryClient.getQueryData<AuthUser | null>([api.auth.me.path]);
+      return {
+        ...(current || {}),
+        role: data.role,
+        city: data.city,
+        phone: data.phone || null,
+      } as any;
+    },
+    onSuccess: (data: any) => {
+      queryClient.setQueryData([api.auth.me.path], data);
+      localStorage.setItem("app_mode", data.role === "provider" ? "provider" : "client");
+    },
+  });
+
+  const deleteAccountMutation = useMutation({
+    mutationFn: async (data: { reason?: string }) => {
+      const res = await fetch(api.account.deleteAccount.path, {
+        method: api.account.deleteAccount.method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...data, confirmation: true }),
         credentials: "include",
       });
-      if (!res.ok) throw new Error("Logout failed");
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}));
+        throw new Error(error.message || "Failed to delete account");
+      }
+      return api.account.deleteAccount.responses[200].parse(await res.json());
+    },
+    onSuccess: () => {
+      localStorage.removeItem("app_mode");
+    },
+  });
+
+  const logoutMutation = useMutation({
+    mutationFn: async () => {
+      try {
+        await supabase.auth.signOut();
+      } catch {}
+      try {
+        await fetch(api.auth.logout.path, {
+          method: api.auth.logout.method,
+          credentials: "include",
+        });
+      } catch {}
     },
     onSuccess: () => {
       queryClient.setQueryData([api.auth.me.path], null);
@@ -90,6 +273,11 @@ export function useAuth() {
     isLoggingIn: loginMutation.isPending,
     register: registerMutation.mutateAsync,
     isRegistering: registerMutation.isPending,
+    completeProfile: completeProfileMutation.mutateAsync,
+    isCompleting: completeProfileMutation.isPending,
+    deleteAccount: deleteAccountMutation.mutateAsync,
+    isDeleting: deleteAccountMutation.isPending,
     logout: logoutMutation.mutateAsync,
+    logoutMutation,
   };
 }

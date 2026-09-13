@@ -4,13 +4,10 @@ import { useLanguage } from "@/hooks/use-language";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Ticket, TicketMessage, User } from "@shared/schema";
 import { ArrowLeft, Send, CheckCircle2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import { Button, Input, Chip, Avatar } from "@heroui/react";
 import { useLocation, useParams, Link } from "wouter";
 import { useState, useRef, useEffect } from "react";
 import { toast } from "@/hooks/use-toast";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 type FullTicket = Ticket & {
     user: User;
@@ -20,7 +17,7 @@ type FullTicket = Ticket & {
 export default function TicketDetailPage() {
     const { id } = useParams();
     const { user } = useAuth();
-    const { language } = useLanguage();
+    const { t, language } = useLanguage();
     const [location, setLocation] = useLocation();
     const queryClient = useQueryClient();
     const [newMessage, setNewMessage] = useState("");
@@ -50,7 +47,7 @@ export default function TicketDetailPage() {
             setNewMessage("");
         },
         onError: () => {
-            toast({ title: language === 'ar' ? "فشل إرسال الرسالة" : "Failed to send message", variant: "destructive" });
+            toast({ title: t("failedToSend"), variant: "destructive" });
         },
     });
 
@@ -68,7 +65,7 @@ export default function TicketDetailPage() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: [`${apiBase}/${id}`] });
             queryClient.invalidateQueries({ queryKey: [apiBase] });
-            toast({ title: language === 'ar' ? "تم تحديث حالة التذكرة" : "Ticket status updated" });
+            toast({ title: t("ticketStatusUpdated") });
         },
     });
 
@@ -87,34 +84,36 @@ export default function TicketDetailPage() {
         sendMessage.mutate(newMessage);
     };
 
-    const statusLabels: Record<string, { ar: string; en: string }> = {
-        open: { ar: 'مفتوحة', en: 'Open' },
-        resolved: { ar: 'محلولة', en: 'Resolved' },
-        closed: { ar: 'مغلقة', en: 'Closed' },
+    const statusLabels: Record<string, string> = {
+        open: t("open"),
+        resolved: t("resolved"),
+        closed: t("closed"),
     };
 
     const getStatusBadge = (status: string) => {
-        const label = statusLabels[status]?.[language === 'ar' ? 'ar' : 'en'] || status;
+        const label = statusLabels[status] || status;
         switch (status) {
-            case 'open': return <Badge className="bg-amber-500">{label}</Badge>;
-            case 'resolved': return <Badge className="bg-green-500">{label}</Badge>;
-            case 'closed': return <Badge variant="secondary">{label}</Badge>;
-            default: return <Badge variant="outline">{label}</Badge>;
+            case 'open': return <Chip color="warning" variant="flat">{label}</Chip>;
+            case 'resolved': return <Chip color="success" variant="flat">{label}</Chip>;
+            case 'closed': return <Chip variant="flat">{label}</Chip>;
+            default: return <Chip variant="bordered">{label}</Chip>;
         }
     };
 
     if (isLoading) {
-        const content = <div className="container mx-auto px-4 py-8 max-w-4xl text-center text-muted-foreground">Loading ticket...</div>;
+        const content = <div className="container mx-auto px-4 py-8 max-w-4xl text-center text-muted-foreground">{t("loadingTicket")}</div>;
         return isAdminRoute ? content : <Layout>{content}</Layout>;
     }
 
     if (!ticket) {
-        const content = <div className="container mx-auto px-4 py-8 max-w-4xl text-center text-muted-foreground">Ticket not found.</div>;
+        const content = <div className="container mx-auto px-4 py-8 max-w-4xl text-center text-muted-foreground">{t("ticketNotFound")}</div>;
         return isAdminRoute ? content : <Layout>{content}</Layout>;
     }
 
     // Only admins can change ticket status
     const canChangeStatus = isAdminRoute || user?.role === 'admin';
+
+    const ticketOwnerName = ticket.user?.fullName || t("user") || "User";
 
     const inner = (
         <div className="container mx-auto px-4 py-8 max-w-4xl flex flex-col h-[calc(100vh-100px)]">
@@ -122,11 +121,11 @@ export default function TicketDetailPage() {
             <div className="flex items-center gap-4 mb-6 shrink-0">
                 {isAdminRoute ? (
                     <Link href="/k-admin-portal-secure/tickets">
-                        <Button variant="ghost" size="icon"><ArrowLeft className="w-5 h-5" /></Button>
+                        <Button variant="light" isIconOnly><ArrowLeft className="w-5 h-5" /></Button>
                     </Link>
                 ) : (
                     <Link href="/support">
-                        <Button variant="ghost" size="icon"><ArrowLeft className="w-5 h-5" /></Button>
+                        <Button variant="light" isIconOnly><ArrowLeft className="w-5 h-5" /></Button>
                     </Link>
                 )}
                 <div className="flex-1">
@@ -135,7 +134,7 @@ export default function TicketDetailPage() {
                     </h1>
                     <div className="flex items-center gap-2 mt-1">
                         <span className="text-sm text-muted-foreground">
-                            {language === 'ar' ? "بواسطة" : "By"}: {ticket.user.fullName}
+                            {t("by")}: {ticketOwnerName}
                         </span>
                         <span>•</span>
                         {getStatusBadge(ticket.status)}
@@ -143,15 +142,15 @@ export default function TicketDetailPage() {
                 </div>
                 {ticket.status !== 'closed' && canChangeStatus && (
                     <Button
-                        variant="outline"
-                        className="text-green-600 hover:text-green-700 hover:bg-green-50 gap-2 shrink-0 border-green-200"
-                        onClick={() => updateStatus.mutate(ticket.status === 'resolved' ? 'closed' : 'resolved')}
-                        disabled={updateStatus.isPending}
+                        variant="bordered"
+                        className="gap-2 shrink-0"
+                        onPress={() => updateStatus.mutate(ticket.status === 'resolved' ? 'closed' : 'resolved')}
+                        isDisabled={updateStatus.isPending}
                     >
                         <CheckCircle2 className="w-4 h-4" />
                         {language === 'ar'
-                            ? (ticket.status === 'resolved' ? 'إغلاق التذكرة' : 'تحديد كمحلولة')
-                            : (ticket.status === 'resolved' ? 'Close Ticket' : 'Mark Resolved')}
+                            ? (ticket.status === 'resolved' ? t("closeTicket") : t("markResolved"))
+                            : (ticket.status === 'resolved' ? t("closeTicket") : t("markResolved"))}
                     </Button>
                 )}
             </div>
@@ -160,12 +159,10 @@ export default function TicketDetailPage() {
                 {/* Initial description */}
                 <div className="p-6 border-b bg-muted/20 shrink-0">
                     <div className="flex items-start gap-4">
-                        <Avatar className="w-10 h-10 border shadow-sm">
-                            <AvatarFallback>{ticket.user.fullName[0].toUpperCase()}</AvatarFallback>
-                        </Avatar>
+                        <Avatar name={ticketOwnerName} showFallback className="w-10 h-10 border shadow-sm" />
                         <div>
                             <div className="font-semibold">
-                                {ticket.user.fullName}
+                                {ticketOwnerName}
                                 <span className="text-xs font-normal text-muted-foreground ml-2">
                                     {new Date(ticket.createdAt!).toLocaleString()}
                                 </span>
@@ -179,11 +176,12 @@ export default function TicketDetailPage() {
                 <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50/50">
                     {ticket.messages.length === 0 ? (
                         <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
-                            {language === 'ar' ? "لا توجد ردود بعد" : "No replies yet. An agent will be with you shortly."}
+                            {t("noRepliesYet")}
                         </div>
                     ) : (
                         ticket.messages.map((msg) => {
-                            const isSupportAdmin = msg.sender.role === 'admin';
+                            const sender = msg.sender;
+                            const isSupportAdmin = sender?.role === 'admin';
                             
                             // Determine if this message should be rendered as "Me" (on the right side)
                             let isMe = false;
@@ -196,8 +194,8 @@ export default function TicketDetailPage() {
                             }
 
                             // Which avatar and name to show
-                            const senderName = isSupportAdmin ? "Administrator" : msg.sender.fullName;
-                            const displayName = isMe ? (language === 'ar' ? 'أنت' : 'You') : senderName;
+                            const senderName = isSupportAdmin ? "Administrator" : (sender?.fullName || t("user") || "User");
+                            const displayName = isMe ? t("you") : senderName;
                             
                             // Bubble styling
                             let bubbleClass = 'bg-white border rounded-tl-sm shadow-sm'; // Default client
@@ -211,19 +209,20 @@ export default function TicketDetailPage() {
 
                             return (
                                 <div key={msg.id} className={`flex gap-3 ${isMe ? 'flex-row-reverse' : ''}`}>
-                                    <Avatar className={`w-8 h-8 shrink-0 border ${isSupportAdmin ? 'ring-2 ring-slate-800 ring-offset-1' : ''}`}>
-                                        <AvatarImage src={isSupportAdmin ? undefined : msg.sender.profileImage || undefined} />
-                                        <AvatarFallback className={isSupportAdmin ? 'bg-slate-800 text-slate-100 text-xs font-bold' : 'text-xs'}>
-                                            {isSupportAdmin ? 'A' : msg.sender.fullName[0]?.toUpperCase()}
-                                        </AvatarFallback>
-                                    </Avatar>
+                                    <Avatar
+                                        src={isSupportAdmin ? undefined : sender?.profileImage || undefined}
+                                        name={sender?.fullName || t("user")}
+                                        showFallback
+                                        className={`w-8 h-8 shrink-0 border ${isSupportAdmin ? 'ring-2 ring-slate-800 ring-offset-1' : ''}`}
+                                        classNames={{ fallback: isSupportAdmin ? 'bg-slate-800 text-slate-100 text-xs font-bold' : 'text-xs' }}
+                                    />
                                     <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[80%]`}>
                                         <div className="flex items-center gap-1.5 mb-1 px-1 text-[11px] text-muted-foreground">
                                             <span>{displayName}</span>
                                             {isSupportAdmin && (
-                                                <Badge variant="outline" className="text-[9px] h-4 px-1 py-0 border-amber-500 text-amber-600 bg-amber-50 rounded-sm leading-none shrink-0 font-bold uppercase tracking-wider">
+                                                <Chip variant="bordered" size="sm" className="text-[9px] h-4 px-1 border-amber-500 text-amber-600 bg-amber-50 rounded-sm leading-none shrink-0 font-bold uppercase tracking-wider">
                                                     Admin
-                                                </Badge>
+                                                </Chip>
                                             )}
                                             <span>{' • '}</span>
                                             <span>{new Date(msg.createdAt!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
@@ -243,22 +242,22 @@ export default function TicketDetailPage() {
                 <div className="p-4 bg-background border-t shrink-0">
                     {ticket.status === 'closed' ? (
                         <div className="text-center p-3 text-muted-foreground bg-muted rounded-lg text-sm border border-dashed">
-                            {language === 'ar' ? "هذه التذكرة مغلقة ولا يمكن الرد عليها." : "This ticket is closed and cannot be replied to."}
+                            {t("ticketClosed")}
                         </div>
                     ) : (
                         <form onSubmit={handleSend} className="flex gap-3 items-center" dir={language === 'ar' ? 'rtl' : 'ltr'}>
                             <Input
-                                className="flex-1 bg-muted/30 hover:bg-muted/50 transition-colors focus-visible:ring-primary/50 text-base py-6 px-4 rounded-xl"
-                                placeholder={language === 'ar' ? "اكتب ردك هنا..." : "Type your reply..."}
+                                className="flex-1 text-base"
+                                placeholder={t("typeReply")}
                                 value={newMessage}
-                                onChange={(e) => setNewMessage(e.target.value)}
-                                disabled={sendMessage.isPending}
+                                onValueChange={setNewMessage}
+                                isDisabled={sendMessage.isPending}
                             />
                             <Button
                                 type="submit"
-                                size="icon"
+                                isIconOnly
                                 className="h-12 w-12 rounded-xl shrink-0 shadow-md"
-                                disabled={!newMessage.trim() || sendMessage.isPending}
+                                isDisabled={!newMessage.trim() || sendMessage.isPending}
                             >
                                 <Send className={`w-5 h-5 ${language === 'ar' ? 'rotate-180' : ''}`} />
                             </Button>

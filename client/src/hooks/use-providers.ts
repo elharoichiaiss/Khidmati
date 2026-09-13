@@ -11,7 +11,7 @@ export function useProviders(params?: ProviderSearchParams) {
       const url = new URL(api.providers.list.path, window.location.origin);
       if (params) {
         Object.entries(params).forEach(([key, value]) => {
-          if (value) url.searchParams.append(key, value);
+          if (value) url.searchParams.append(key, String(value));
         });
       }
       const res = await fetch(url.toString(), { credentials: "include" });

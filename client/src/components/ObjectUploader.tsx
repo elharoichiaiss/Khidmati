@@ -6,7 +6,7 @@ import DashboardModal from "@uppy/react/dashboard-modal";
 import "@uppy/core/css/style.min.css";
 import "@uppy/dashboard/css/style.min.css";
 import AwsS3 from "@uppy/aws-s3";
-import { Button } from "@/components/ui/button";
+import { Button } from "@heroui/react";
 
 interface ObjectUploaderProps {
   maxNumberOfFiles?: number;
@@ -87,7 +87,7 @@ export function ObjectUploader({
 
   return (
     <div>
-      <Button onClick={() => setShowModal(true)} className={buttonClassName}>
+      <Button onPress={() => setShowModal(true)} className={buttonClassName}>
         {children}
       </Button>
 

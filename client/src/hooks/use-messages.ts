@@ -10,7 +10,7 @@ export function useConversations() {
       if (!res.ok) throw new Error("Failed to fetch conversations");
       return api.conversations.list.responses[200].parse(await res.json());
     },
-    refetchInterval: 10000, // Auto-poll every 10s for new conversations
+    refetchInterval: () => document.hidden ? false : 10000,
   });
 }
 
@@ -25,7 +25,7 @@ export function useConversation(id: number) {
       return api.conversations.get.responses[200].parse(await res.json());
     },
     enabled: !!id,
-    refetchInterval: 3000, // Poll for new messages every 3s
+    refetchInterval: () => document.hidden ? false : 5000,
   });
 }
 
@@ -145,6 +145,55 @@ export function useMarkConversationRead() {
     onSuccess: (_, conversationId) => {
       queryClient.invalidateQueries({ queryKey: [api.conversations.get.path, conversationId] });
       queryClient.invalidateQueries({ queryKey: ["/api/messages/unread-count"] });
+    },
+  });
+}
+
+export function useCreateInvoice() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ conversationId, description, agreedPrice }: { conversationId: number; description: string; agreedPrice: number }) => {
+      const res = await fetch(`/api/conversations/${conversationId}/invoices`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ description, agreedPrice }),
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Failed to create invoice");
+      }
+      return res.json();
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: [api.conversations.get.path, variables.conversationId] });
+      queryClient.invalidateQueries({ queryKey: [api.conversations.list.path] });
+    },
+  });
+}
+
+export function useUpdateInvoiceStatus() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ invoiceId, status }: { invoiceId: number; status: string }) => {
+      const res = await fetch(`/api/invoices/${invoiceId}/status`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Failed to update invoice status");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: [api.conversations.get.path, data.conversationId] });
+      // Update provider dashboard stats if status became completed
+      if (data.status === "completed") {
+        queryClient.invalidateQueries({ queryKey: ["/api/provider/stats"] });
+      }
     },
   });
 }

@@ -3,7 +3,8 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
-import { setupSecurityHeaders, validateSessionSecret, authLimiter, apiLimiter } from "./security";
+import { setupSecurityHeaders, validateSessionSecret, authLimiter, apiLimiter, uploadLimiter } from "./security";
+import { setupVite } from "./vite";
 
 const app = express();
 const httpServer = createServer(app);
@@ -14,23 +15,22 @@ declare module "http" {
   }
 }
 
-// Validate session secret before starting
 const sessionSecret = validateSessionSecret();
 
-// Security headers (Helmet + custom)
 setupSecurityHeaders(app);
 
-// Rate limiting for auth endpoints (applied in routes)
 app.use("/api/login", authLimiter);
 app.use("/api/register", authLimiter);
 app.use("/api/auth", authLimiter);
 app.use("/api/admin/login", authLimiter);
+app.use("/api/upload", uploadLimiter);
+app.use("/api/uploads", uploadLimiter);
 
-// General API rate limiting
 app.use("/api", apiLimiter);
 
 app.use(
   express.json({
+    limit: "5mb",
     verify: (req, _res, buf) => {
       req.rawBody = buf;
     },
@@ -53,23 +53,11 @@ export function log(message: string, source = "express") {
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
-
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
-  };
 
   res.on("finish", () => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
-
-      log(logLine);
+      log(`${req.method} ${path} ${res.statusCode} in ${duration}ms`);
     }
   });
 
@@ -81,7 +69,10 @@ app.use((req, res, next) => {
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+    // DGSSI 7.4.1: Show generic error message for 500 in production to avoid leaking details
+    const message = (process.env.NODE_ENV === "production" && status === 500)
+      ? "An unexpected error occurred. Please try again later."
+      : (err.message || "Internal Server Error");
 
     console.error("Internal Server Error:", err);
 
@@ -90,6 +81,11 @@ app.use((req, res, next) => {
     }
 
     return res.status(status).json({ message });
+  });
+
+  // Fallback for unhandled API routes: Prevent Vite/static server from serving index.html for missing APIs
+  app.use("/api", (req, res) => {
+    res.status(404).json({ message: "المسار غير موجود (API endpoint not found)" });
   });
 
   // importantly only setup vite in development and after
@@ -102,14 +98,8 @@ app.use((req, res, next) => {
     });
     serveStatic(app);
   } else {
-    const { setupVite } = await import("./vite");
     await setupVite(server, app);
   }
-
-  // Fallback for unhandled API routes: Prevent Vite from serving index.html for missing APIs
-  app.use("/api", (req, res) => {
-    res.status(404).json({ message: "API endpoint not found" });
-  });
 
   // ALWAYS serve the app on the port specified in the environment variable PORT
   // Other ports are firewalled. Default to 5000 if not specified.
@@ -127,3 +117,4 @@ app.use((req, res, next) => {
     },
   );
 })();
+

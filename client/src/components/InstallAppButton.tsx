@@ -1,23 +1,15 @@
-import { Button } from "@/components/ui/button";
-import { Download } from "lucide-react";
-import { usePWAInstall } from "@/hooks/use-pwa-install";
 import { useLanguage } from "@/hooks/use-language";
+import { PWAInstallButton } from "@/components/PWAInstallButton";
 
-export function InstallAppButton({ className, variant = "outline" }: { className?: string, variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" }) {
-    const { isInstallable, installApp } = usePWAInstall();
+export function InstallAppButton({ className, variant = "bordered" }: { className?: string, variant?: "solid" | "bordered" | "light" | "flat" | "faded" | "shadow" | "ghost" }) {
     const { language } = useLanguage();
-
-    if (!isInstallable) return null;
-
     return (
-        <Button
-            onClick={installApp}
+        <PWAInstallButton
+            className={className}
             variant={variant}
-            className={`gap-2 ${className}`}
             size="sm"
-        >
-            <Download className="w-4 h-4" />
-            {language === 'ar' ? "تثبيت التطبيق" : "Install App"}
-        </Button>
+            alwaysShow
+            label={language === "ar" ? "تثبيت التطبيق" : "Install App"}
+        />
     );
 }

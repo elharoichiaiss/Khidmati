@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Button, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@heroui/react";
 import { MapContainer, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import { Loader2, MapPin, Navigation } from "lucide-react";
 import L from 'leaflet';
@@ -141,19 +140,19 @@ export function LocationPickerDialog({ open, onOpenChange, onSelectLocation }: L
     };
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[600px] h-[100dvh] sm:h-[85vh] flex flex-col p-0 gap-0 overflow-hidden border-0 sm:border rounded-none sm:rounded-lg">
-                <DialogHeader className="p-4 bg-background z-20 border-b shadow-sm shrink-0">
-                    <DialogTitle className="flex items-center gap-2">
+        <Modal isOpen={open} onOpenChange={onOpenChange} size="full" placement="center" className="sm:max-w-[600px] sm:h-[85vh]">
+            <ModalContent className="h-full flex flex-col">
+                <ModalHeader className="p-4 bg-background z-20 border-b shadow-sm shrink-0">
+                    <div className="flex items-center gap-2">
                         <MapPin className="w-5 h-5 text-primary" />
-                        {t("pinYourLocation")}
-                    </DialogTitle>
-                    <DialogDescription>
-                        {t("moveMapToAlignPin")}
-                    </DialogDescription>
-                </DialogHeader>
+                        <div>
+                            <h2 className="text-lg font-semibold">{t("pinYourLocation")}</h2>
+                            <p className="text-sm text-muted-foreground">{t("moveMapToAlignPin")}</p>
+                        </div>
+                    </div>
+                </ModalHeader>
 
-                <div className="flex-1 relative w-full bg-slate-100 overflow-hidden">
+                <ModalBody className="flex-1 relative w-full bg-slate-100 overflow-hidden p-0">
                     {isGettingLocation ? (
                         <div className="absolute inset-0 flex flex-col items-center justify-center z-20 bg-background/80 backdrop-blur-sm">
                             <Loader2 className="w-10 h-10 animate-spin text-primary mb-2" />
@@ -197,21 +196,21 @@ export function LocationPickerDialog({ open, onOpenChange, onSelectLocation }: L
                             </div>
                         </div>
                     </div>
-                </div>
+                </ModalBody>
 
-                <DialogFooter className="p-4 border-t bg-background shrink-0 flex-col sm:flex-row gap-2">
-                    <Button variant="outline" onClick={() => onOpenChange(false)} className="w-full sm:w-auto">
+                <ModalFooter className="p-4 border-t bg-background shrink-0 flex-col sm:flex-row gap-2">
+                    <Button variant="bordered" onPress={() => onOpenChange(false)} className="w-full sm:w-auto">
                         {t("cancel")}
                     </Button>
                     <Button
-                        onClick={handleConfirm}
-                        disabled={isGettingLocation || !center}
-                        className="w-full sm:w-auto gap-2 bg-primary hover:bg-primary/90 text-white shadow-md transition-all active:scale-95"
+                        onPress={handleConfirm}
+                        isDisabled={isGettingLocation || !center}
+                        className="w-full sm:w-auto gap-2 bg-primary hover:bg-primary/90 text-white shadow-md"
                     >
                         {t("confirmLocation")}
                     </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                </ModalFooter>
+            </ModalContent>
+        </Modal>
     );
 }

@@ -2,7 +2,17 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
-    const text = (await res.text()) || res.statusText;
+    const contentType = res.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      const data = await res.json().catch(() => null);
+      if (data?.message) {
+        throw new Error(data.message);
+      }
+    }
+    const text = (await res.text().catch(() => "")) || res.statusText;
+    if (text.trim().startsWith("<!DOCTYPE") || text.trim().startsWith("<html")) {
+      throw new Error("تعذر الاتصال بالخادم. (Server error or endpoint not found)");
+    }
     throw new Error(`${res.status}: ${text}`);
   }
 }
@@ -38,6 +48,13 @@ export const getQueryFn: <T>(options: {
       }
 
       await throwIfResNotOk(res);
+      const contentType = res.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        const text = await res.text().catch(() => "");
+        if (text.trim().startsWith("<!DOCTYPE") || text.trim().startsWith("<html")) {
+          throw new Error("تعذر الحصول على بيانات الاستجابة من الخادم (Invalid server response)");
+        }
+      }
       return await res.json();
     };
 

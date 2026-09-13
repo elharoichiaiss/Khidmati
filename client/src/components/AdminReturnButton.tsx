@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/button";
+import { Button } from "@heroui/react";
 import { useAuth } from "@/hooks/use-auth";
 import { useAdminAuth } from "@/hooks/use-admin-auth";
 import { LayoutDashboard } from "lucide-react";

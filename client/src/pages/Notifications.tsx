@@ -3,10 +3,11 @@ import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Notification } from "@shared/schema";
-import { Bell, Calendar, Info, Mail, CheckCircle2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Bell, Calendar, Info, Mail, CheckCircle2, MessageSquare } from "lucide-react";
+import { Button, Skeleton } from "@heroui/react";
 import { useLocation } from "wouter";
 import { toast } from "@/hooks/use-toast";
+import { getNotifTarget } from "@/lib/utils";
 
 export default function NotificationsPage() {
     const { user } = useAuth();
@@ -22,7 +23,7 @@ export default function NotificationsPage() {
     const markRead = useMutation({
         mutationFn: async (id: number) => {
             const res = await fetch(`/api/notifications/${id}/read`, { method: "PATCH", credentials: "include" });
-            if (!res.ok) throw new Error("Failed to mark as read");
+            if (!res.ok) throw new Error("Failed");
             return res.json();
         },
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/notifications"] }),
@@ -30,8 +31,8 @@ export default function NotificationsPage() {
 
     const markAllRead = useMutation({
         mutationFn: async () => {
-            const res = await fetch(`/api/notifications/read-all`, { method: "PATCH", credentials: "include" });
-            if (!res.ok) throw new Error("Failed to mark all as read");
+            const res = await fetch("/api/notifications/read-all", { method: "PATCH", credentials: "include" });
+            if (!res.ok) throw new Error("Failed");
             return res.json();
         },
         onSuccess: () => {
@@ -42,14 +43,22 @@ export default function NotificationsPage() {
 
     const handleNotifClick = (notif: Notification) => {
         if (!notif.read) markRead.mutate(notif.id);
-        if (notif.link) setLocation(notif.link);
+        setLocation(getNotifTarget(notif, user?.role));
     };
 
     const getNotifIcon = (type: string) => {
         switch (type) {
-            case "booking_update": return <Calendar className="w-5 h-5 text-primary" />;
-            case "new_message": return <Mail className="w-5 h-5 text-blue-500" />;
-            default: return <Info className="w-5 h-5 text-muted-foreground" />;
+            case "booking_update": return <Calendar className="w-5 h-5" />;
+            case "new_message": return <MessageSquare className="w-5 h-5" />;
+            default: return <Info className="w-5 h-5" />;
+        }
+    };
+
+    const getNotifColor = (type: string) => {
+        switch (type) {
+            case "booking_update": return { bg: "bg-emerald-50 dark:bg-emerald-950/30", text: "text-emerald-600 dark:text-emerald-400" };
+            case "new_message": return { bg: "bg-blue-50 dark:bg-blue-950/30", text: "text-blue-600 dark:text-blue-400" };
+            default: return { bg: "bg-zinc-100 dark:bg-zinc-800", text: "text-zinc-500" };
         }
     };
 
@@ -62,68 +71,89 @@ export default function NotificationsPage() {
 
     return (
         <Layout>
-            <div className="container mx-auto px-4 py-8 max-w-4xl">
-                <div className="flex items-center justify-between mb-8">
-                    <div>
-                        <h1 className="text-3xl font-display font-bold flex items-center gap-3">
-                            <Bell className="w-8 h-8 text-primary" />
-                            {t("notifications") || "Notifications"}
-                        </h1>
-                        <p className="text-muted-foreground mt-2">
-                            {unreadCount > 0
-                                ? (language === 'ar' ? `لديك ${unreadCount} إشعارات غير مقروءة` : `You have ${unreadCount} unread notifications`)
-                                : (language === 'ar' ? "لا توجد إشعارات غير مقروءة" : "You're all caught up!")
-                            }
-                        </p>
-                    </div>
-                    {unreadCount > 0 && (
-                        <Button
-                            variant="outline"
-                            onClick={() => markAllRead.mutate()}
-                            disabled={markAllRead.isPending}
-                            className="gap-2"
-                        >
-                            <CheckCircle2 className="w-4 h-4" />
-                            {language === 'ar' ? "تحديد الكل كمقروء" : "Mark all as read"}
-                        </Button>
-                    )}
-                </div>
-
-                <div className="bg-card rounded-xl shadow-sm border overflow-hidden">
-                    {isLoading ? (
-                        <div className="p-8 text-center text-muted-foreground">Loading...</div>
-                    ) : notifications.length === 0 ? (
-                        <div className="py-16 text-center text-muted-foreground">
-                            <Bell className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                            <p className="text-lg">{language === 'ar' ? 'لا توجد إشعارات' : 'No notifications yet'}</p>
+            <div className="bg-zinc-50 dark:bg-black min-h-screen py-10">
+                <div className="container mx-auto px-4 max-w-5xl pb-24">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+                        <div className="flex items-center gap-3">
+                            <div className="p-3.5 bg-amber-50 dark:bg-amber-950/40 rounded-2xl text-amber-600 dark:text-amber-400">
+                                <Bell className="w-7 h-7" />
+                            </div>
+                            <div>
+                                <h1 className="text-3xl md:text-4xl font-black text-zinc-900 dark:text-white">
+                                    {t("notifications") || "Notifications"}
+                                </h1>
+                                <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 mt-1">
+                                    {unreadCount > 0
+                                        ? (language === 'ar' ? `${unreadCount} غير مقروءة` : `${unreadCount} unread`)
+                                        : (language === 'ar' ? "لا توجد غير مقروءة" : "All caught up")
+                                    }
+                                </p>
+                            </div>
                         </div>
-                    ) : (
-                        <div className="divide-y">
-                            {notifications.map((notif) => (
-                                <div
-                                    key={notif.id}
-                                    onClick={() => handleNotifClick(notif)}
-                                    className={`p-4 flex gap-4 transition-colors cursor-pointer hover:bg-muted/50 ${!notif.read ? 'bg-primary/5' : ''}`}
-                                >
-                                    <div className={`p-3 rounded-full flex-shrink-0 ${!notif.read ? 'bg-background shadow-sm' : 'bg-muted'}`}>
-                                        {getNotifIcon(notif.type)}
+                        {unreadCount > 0 && (
+                            <Button
+                                className="bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 font-bold px-6 h-12 shadow-sm"
+                                style={{ borderRadius: "16px" }}
+                                startContent={<CheckCircle2 className="w-4 h-4" />}
+                                onPress={() => markAllRead.mutate()}
+                                isDisabled={markAllRead.isPending}
+                            >
+                                {language === 'ar' ? "تحديد الكل" : "Mark all read"}
+                            </Button>
+                        )}
+                    </div>
+
+                    {isLoading ? (
+                        <div className="space-y-3">
+                            {[1, 2, 3].map((i) => (
+                                <div key={i} className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800/80 p-6" style={{ borderRadius: "28px" }}>
+                                    <div className="flex items-center gap-4">
+                                        <Skeleton className="w-12 h-12 rounded-2xl" />
+                                        <div className="space-y-2 flex-1"><Skeleton className="h-4 w-64 rounded-lg" /><Skeleton className="h-3 w-32 rounded-lg" /></div>
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className={`text-base ${!notif.read ? 'font-semibold text-foreground' : 'font-medium text-muted-foreground'}`}>
-                                            {notif.message}
-                                        </p>
-                                        <p className="text-sm text-muted-foreground mt-1">
-                                            {notif.createdAt ? new Date(notif.createdAt).toLocaleString(language === 'ar' ? 'ar-MA' : 'en-US', {
-                                                dateStyle: 'medium',
-                                                timeStyle: 'short'
-                                            }) : ""}
-                                        </p>
-                                    </div>
-                                    {!notif.read && (
-                                        <div className="w-3 h-3 rounded-full bg-primary mt-2 flex-shrink-0" />
-                                    )}
                                 </div>
                             ))}
+                        </div>
+                    ) : notifications.length === 0 ? (
+                        <div className="text-center py-16 bg-white dark:bg-zinc-900 rounded-[32px] border border-zinc-100 dark:border-zinc-800 shadow-[0_10px_30px_rgba(0,0,0,0.03)]">
+                            <div className="w-20 h-20 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                                <Bell className="w-10 h-10 text-zinc-400" />
+                            </div>
+                            <h3 className="text-xl font-extrabold text-zinc-900 dark:text-white mb-2">
+                                {language === 'ar' ? 'لا توجد إشعارات' : 'No notifications yet'}
+                            </h3>
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            {notifications.map((notif) => {
+                                const colors = getNotifColor(notif.type);
+                                return (
+                                    <div
+                                        key={notif.id}
+                                        onClick={() => handleNotifClick(notif)}
+                                        className={`bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800/80 p-5 flex items-center gap-4 shadow-[0_10px_30px_rgba(0,0,0,0.03)] hover:scale-[1.01] transition-transform cursor-pointer ${!notif.read ? 'border-l-4 border-l-amber-500' : ''}`}
+                                        style={{ borderRadius: "28px" }}
+                                    >
+                                        <div className={`w-12 h-12 rounded-2xl ${colors.bg} flex items-center justify-center ${colors.text} shrink-0`}>
+                                            {getNotifIcon(notif.type)}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className={`text-sm ${!notif.read ? 'font-extrabold text-zinc-900 dark:text-white' : 'font-medium text-zinc-600 dark:text-zinc-400'}`}>
+                                                {notif.message}
+                                            </p>
+                                            <p className="text-xs font-semibold text-zinc-400 dark:text-zinc-500 mt-1">
+                                                {notif.createdAt ? new Date(notif.createdAt).toLocaleString(language === 'ar' ? 'ar-MA' : 'en-US', {
+                                                    dateStyle: 'medium',
+                                                    timeStyle: 'short'
+                                                }) : ""}
+                                            </p>
+                                        </div>
+                                        {!notif.read && (
+                                            <div className="w-3 h-3 rounded-full bg-amber-500 flex-shrink-0 animate-pulse" />
+                                        )}
+                                    </div>
+                                );
+                            })}
                         </div>
                     )}
                 </div>

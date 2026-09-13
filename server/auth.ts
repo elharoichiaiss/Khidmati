@@ -31,7 +31,7 @@ export function setupAuth(app: Express) {
     saveUninitialized: false,
     cookie: {
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-      secure: app.get("env") === "production",
+      secure: process.env.NODE_ENV === "production",
       httpOnly: true,
       sameSite: "lax",
     },
@@ -48,7 +48,7 @@ export function setupAuth(app: Express) {
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       try {
-        const user = await storage.getUserByUsername(username.trim().toLowerCase());
+        const user = await storage.getUserByUsernameWithPassword(username.trim().toLowerCase());
         if (!user) {
           return done(null, false, { message: "Incorrect username." });
         }
@@ -62,11 +62,10 @@ export function setupAuth(app: Express) {
           return done(null, false, { message: "Incorrect password." });
         }
 
-        if (user.isBanned) {
-          return done(null, false, { message: "Account is banned" });
-        }
 
-        return done(null, user);
+        // Sanitize the user object before passing it to done() to avoid leaking the password hash
+        const { password: _password, ...safeUser } = user;
+        return done(null, safeUser);
       } catch (err) {
         return done(err);
       }
@@ -91,39 +90,63 @@ export function setupAuth(app: Express) {
             },
             async (req: any, accessToken: string, refreshToken: string, profile: any, done: any) => {
               try {
-                // 1. Check if user exists by googleId
-                const usersList = await storage.getAllUsers();
-                let user = usersList.find(u => u.googleId === profile.id);
-
-                if (!user) {
-                  // 2. Check if user exists by email
-                  const email = profile.emails?.[0]?.value;
-                  if (email) {
-                    user = usersList.find(u => u.email === email || u.username === email);
-                  }
-
-                  if (user) {
-                    // Link googleId to existing user
-                    user = await storage.updateUser(user.id, { googleId: profile.id } as any);
-                  } else {
-                    // 3. Create new user
-                    const username = email || `google_${profile.id}`;
-                    const newUserData = {
-                      username: username,
-                      fullName: profile.displayName || "Google User",
-                      email: email || null,
-                      googleId: profile.id,
-                      profileImage: profile.photos?.[0]?.value || null,
-                      role: "client" as const,
-                      password: null as any
-                    };
-                    
-                    user = await storage.createUser(newUserData as any);
-                  }
+                const email = profile.emails?.[0]?.value;
+                const googleId = profile.id;
+                
+                // 1. Check if user already linked this Google account
+                let user = await storage.getUserByGoogleId(googleId);
+                
+                // 2. Check by email
+                if (!user && email) {
+                  user = await storage.getUserByEmail(email);
                 }
 
-                if (user.isBanned) {
-                  return done(null, false, { message: "Account is banned" });
+                // 3. Check by username (email used as username)
+                if (!user && email) {
+                  user = await storage.getUserByUsername(email);
+                }
+
+                if (user) {
+                  // Link googleId only if not already set (avoid unique constraint conflict)
+                  if (!user.googleId) {
+                    try {
+                      user = await storage.updateUser(user.id, { googleId } as any);
+                    } catch (updateErr) {
+                      console.error("Failed to link googleId:", updateErr);
+                      // Continue anyway — user exists, just couldn't link
+                    }
+                  }
+                } else {
+                  // 4. Create new user
+                  const username = email || `google_${googleId}`;
+                  const newUserData = {
+                    username,
+                    fullName: profile.displayName || "Google User",
+                    email: email || null,
+                    googleId,
+                    profileImage: profile.photos?.[0]?.value || null,
+                    role: "client" as const,
+                    password: null as any
+                  };
+                  
+                  try {
+                    user = await storage.createUser(newUserData as any);
+                  } catch (createErr: any) {
+                    // If unique constraint error (race condition), try to find existing user
+                    if (createErr?.code === "23505") {
+                      if (email) {
+                        user = await storage.getUserByEmail(email) || await storage.getUserByUsername(email);
+                      }
+                      if (!user) {
+                        user = await storage.getUserByGoogleId(googleId);
+                      }
+                      if (!user) {
+                        throw createErr;
+                      }
+                    } else {
+                      throw createErr;
+                    }
+                  }
                 }
 
                 return done(null, user);
@@ -153,10 +176,6 @@ export function setupAuth(app: Express) {
         return done(null, false);
       }
 
-      if (user.isBanned) {
-        // If user is banned, invalidate session
-        return done(null, false);
-      }
       done(null, user);
     } catch (err) {
       done(err);

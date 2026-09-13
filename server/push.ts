@@ -1,16 +1,20 @@
 import webpush from 'web-push';
 import { storage } from './storage';
 
-// VAPID keys should be in environment variables ideally
-// Generated for initial setup as requested:
-const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || 'BEzZnbKkh2rln_rr89JiNKhAoMQyROEskGpX5CGk62v6uFZKTBghSrrDJwzLP-2HBRdKj3Hhq5I9uINjRyApXVg';
-const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || 'JJGZ-5UdvSMgjBQL4qkOE3BFG91e7JZtmRuFhqlMa2s';
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY;
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
 
-webpush.setVapidDetails(
-    'mailto:support@khidmati.com',
-    VAPID_PUBLIC_KEY,
-    VAPID_PRIVATE_KEY
-);
+if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
+    console.warn('⚠️  VAPID keys not configured. Push notifications will not work. Set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY in .env');
+}
+
+if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
+    webpush.setVapidDetails(
+        'mailto:support@khidmati.com',
+        VAPID_PUBLIC_KEY,
+        VAPID_PRIVATE_KEY
+    );
+}
 
 export async function sendPushToUser(userId: number, title: string, body: string, url: string = '/') {
     const subscriptions = await storage.getPushSubscriptionsForUser(userId);
@@ -44,12 +48,4 @@ export async function sendPushToUser(userId: number, title: string, body: string
     });
 
     await Promise.all(notifications);
-}
-
-// Log keys on first import if not set in env (per user request)
-if (!process.env.VAPID_PUBLIC_KEY) {
-    console.log('--- VAPID KEYS GENERATED ---');
-    console.log('PUBLIC_KEY:', VAPID_PUBLIC_KEY);
-    console.log('PRIVATE_KEY:', VAPID_PRIVATE_KEY);
-    console.log('----------------------------');
 }

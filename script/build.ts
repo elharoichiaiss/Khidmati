@@ -28,6 +28,8 @@ const allowlist = [
   "uuid",
   "ws",
   "xlsx",
+  "exceljs",
+  "pdfkit",
   "zod",
   "zod-validation-error",
 ];

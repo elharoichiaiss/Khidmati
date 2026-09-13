@@ -32,7 +32,7 @@ export function validateSessionSecret() {
 // Rate limiter for authentication endpoints
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // 10 attempts per window
+  max: 50, // 50 attempts per window
   message: { message: "Too many login attempts. Please try again later." },
   standardHeaders: true,
   legacyHeaders: false,
@@ -98,6 +98,18 @@ export function setupSecurityHeaders(app: express.Express) {
       "Permissions-Policy",
       "geolocation=(self), microphone=(), camera=()"
     );
+
+    // HSTS for Production (DGSSI 14.4.5)
+    if (process.env.NODE_ENV === "production") {
+      res.setHeader("Strict-Transport-Security", "max-age=15724800; includeSubDomains");
+    }
+
+    // Anti-caching headers for API endpoints (DGSSI 8.2.1)
+    if (req.path.startsWith("/api")) {
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
+    }
 
     next();
   });

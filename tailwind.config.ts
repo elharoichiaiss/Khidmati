@@ -1,8 +1,13 @@
 import type { Config } from "tailwindcss";
+import { heroui } from "@heroui/react";
 
 export default {
   darkMode: ["class"],
-  content: ["./client/index.html", "./client/src/**/*.{js,jsx,ts,tsx}"],
+  content: [
+    "./client/index.html",
+    "./client/src/**/*.{js,jsx,ts,tsx}",
+    "./node_modules/@heroui/theme/dist/**/*.{js,ts,jsx,tsx}"
+  ],
   theme: {
     extend: {
       borderRadius: {
@@ -81,11 +86,23 @@ export default {
           busy: "rgb(239 68 68)",
           offline: "rgb(156 163 175)",
         },
+        brand: {
+          dark:  "#0a1628",
+          mid:   "#0d2137",
+          teal:  "#00bcd4",
+          blue:  "#0ea5e9",
+          navy:  "#083a3a",
+        },
       },
       fontFamily: {
         sans: ["'DM Sans'", "sans-serif"],
         display: ["'Outfit'", "sans-serif"],
         arabic: ["'IBM Plex Sans Arabic'", "sans-serif"],
+      },
+      boxShadow: {
+        "teal-glow": "0 4px 24px rgba(0,188,212,0.35)",
+        "blue-glow": "0 4px 24px rgba(14,165,233,0.25)",
+        "card-brand": "0 8px 32px rgba(0,188,212,0.12)",
       },
       keyframes: {
         "accordion-down": {
@@ -96,12 +113,22 @@ export default {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        float: {
+          "0%, 100%": { transform: "translateY(0px) scale(1)" },
+          "50%":      { transform: "translateY(-16px) scale(1.04)" },
+        },
+        shimmer: {
+          "0%":   { backgroundPosition: "-200% 0" },
+          "100%": { backgroundPosition: "200% 0" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
-        "accordion-up": "accordion-up 0.2s ease-out",
+        "accordion-up":   "accordion-up 0.2s ease-out",
+        "float":          "float 6s ease-in-out infinite",
+        "shimmer":        "shimmer 1.5s linear infinite",
       },
     },
   },
-  plugins: [require("tailwindcss-animate"), require("@tailwindcss/typography")],
+  plugins: [require("tailwindcss-animate"), require("@tailwindcss/typography"), heroui()],
 } satisfies Config;
