@@ -1,5 +1,6 @@
 import { Link, useLocation } from "wouter";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth, resolveCurrentNumericUserId } from "@/hooks/use-auth";
+import { supabase } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import {
   Menu, X, User, MessageSquare, LogOut, Globe,
@@ -61,24 +62,67 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   /* Notifications */
   const { data: notifications = [] } = useQuery<Notification[]>({
-    queryKey: ["/api/notifications"],
+    queryKey: ["/api/notifications", user?.id],
     enabled: !!user,
+    queryFn: async (): Promise<Notification[]> => {
+      try {
+        const res = await fetch("/api/notifications", { credentials: "include" });
+        const contentType = res.headers.get("content-type") || "";
+        if (res.ok && contentType.includes("application/json")) {
+          const data = await res.json();
+          if (Array.isArray(data)) return data;
+        }
+      } catch (e) {}
+
+      try {
+        const numericId = await resolveCurrentNumericUserId(user);
+        const { data: notifs } = await supabase
+          .from("notifications")
+          .select("*")
+          .eq("user_id", numericId)
+          .eq("read", false)
+          .order("created_at", { ascending: false });
+
+        if (Array.isArray(notifs)) {
+          return notifs.map((n: any) => ({
+            id: n.id,
+            userId: n.user_id,
+            type: n.type,
+            message: n.message,
+            read: Boolean(n.read),
+            link: n.link,
+            createdAt: n.created_at,
+          }));
+        }
+      } catch (e) {}
+      return [];
+    },
     refetchInterval: 15000,
   });
 
   const markRead = useMutation({
     mutationFn: async (id: number) => {
-      const res = await fetch(`/api/notifications/${id}/read`, { method: "PATCH" });
-      return res.json();
+      try {
+        const res = await fetch(`/api/notifications/${id}/read`, { method: "PATCH", credentials: "include" });
+        if (res.ok) return await res.json();
+      } catch (e) {}
+
+      await supabase.from("notifications").update({ read: true }).eq("id", id);
+      return { success: true };
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/notifications"] }),
   });
 
   const markAllRead = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`/api/notifications/read-all`, { method: "PATCH" });
-      if (!res.ok) throw new Error("Failed");
-      return res.json();
+      try {
+        const res = await fetch(`/api/notifications/read-all`, { method: "PATCH", credentials: "include" });
+        if (res.ok) return await res.json();
+      } catch (e) {}
+
+      const numericId = await resolveCurrentNumericUserId(user);
+      await supabase.from("notifications").update({ read: true }).eq("user_id", numericId);
+      return { success: true };
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/notifications"] }),
   });
@@ -87,8 +131,31 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   /* Messages */
   const { data: unreadMessagesData } = useQuery<{ count: number }>({
-    queryKey: ["/api/messages/unread-count"],
+    queryKey: ["/api/messages/unread-count", user?.id],
     enabled: !!user,
+    queryFn: async () => {
+      try {
+        const res = await fetch("/api/messages/unread-count", { credentials: "include" });
+        const contentType = res.headers.get("content-type") || "";
+        if (res.ok && contentType.includes("application/json")) {
+          return await res.json();
+        }
+      } catch (e) {}
+
+      try {
+        const numericId = await resolveCurrentNumericUserId(user);
+        const { count, error } = await supabase
+          .from("messages")
+          .select("*", { count: "exact", head: true })
+          .eq("read", false)
+          .neq("sender_id", numericId);
+
+        if (!error && count !== null) {
+          return { count };
+        }
+      } catch (e) {}
+      return { count: 0 };
+    },
     refetchInterval: 15000,
   });
   const unreadMessagesCount = unreadMessagesData?.count || 0;
@@ -171,9 +238,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <Link href="/" className="flex items-center gap-2.5 group flex-shrink-0">
               <img
                 src="/logo.png"
-                alt="Logo"
+                alt="Khidmati Logo"
                 className="w-9 h-9 rounded-xl object-cover shadow-sm group-hover:scale-105 transition-transform"
               />
+              <span className="font-extrabold text-xl tracking-tight text-zinc-900 dark:text-white group-hover:text-cyan-500 transition-colors">
+                Khidmati
+              </span>
             </Link>
 
             {/* Desktop Nav */}
@@ -283,9 +353,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
                           className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
                           style={{ background: "linear-gradient(135deg, #00bcd4, #0ea5e9)" }}
                         >
-                          {user.fullName[0].toUpperCase()}
+                          {(user.fullName || user.username || "U")[0]?.toUpperCase() || "U"}
                         </div>
-                        <span className="text-sm font-semibold max-w-[90px] truncate">{user.fullName}</span>
+                        <span className="text-sm font-semibold max-w-[90px] truncate">{user.fullName || user.username || t("profile")}</span>
                       </button>
                     </DropdownTrigger>
                     <DropdownMenu aria-label="User Menu Actions" variant="flat" disabledKeys={[]}>

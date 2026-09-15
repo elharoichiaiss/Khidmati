@@ -163,7 +163,7 @@ export function RecurringBookingForm({ open, onOpenChange, provider }: Recurring
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
           <div className="absolute bottom-0 left-0 w-20 h-20 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
           <div className="relative z-10 flex items-center gap-4">
-            <Avatar src={getImageUrl(provider.profileImage)} name={provider.fullName} showFallback fallback={<span className="text-xl">{provider.fullName[0]}</span>} className="w-14 h-14 border-2 border-white/30 shadow-lg" />
+            <Avatar src={getImageUrl(provider.profileImage)} name={provider.fullName} showFallback fallback={<span className="text-xl">{(provider?.fullName || "P")[0]?.toUpperCase() || "P"}</span>} className="w-14 h-14 border-2 border-white/30 shadow-lg" />
             <div>
               <p className="text-xl font-bold text-white mb-1">{language === "ar" ? "حجز خدمة" : language === "fr" ? "Réserver un service" : "Book a Service"}</p>
               <p className="text-white/80 text-sm">

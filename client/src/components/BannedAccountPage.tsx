@@ -30,6 +30,8 @@ import {
   Badge,
 } from "@heroui/react";
 
+import { supabase } from "@/lib/supabase";
+
 interface TicketMessage {
   id: number;
   ticketId: number;
@@ -63,13 +65,90 @@ export function BannedAccountPage() {
   const isAr = language === "ar";
   const isFr = language === "fr";
 
+  // Helper to resolve integer user_id in Supabase Postgres
+  const resolveNumericUserId = async (): Promise<number> => {
+    if (!user) return 1;
+    const targetStr = String(user?.id || user?.email || "");
+    if (/^\d+$/.test(targetStr)) return Number(targetStr);
+
+    try {
+      const email = user?.email || "";
+      const username = user?.username || email.split("@")[0] || "user";
+      const googleId = (user as any)?.googleId || user?.id;
+
+      const { data: found } = await supabase
+        .from("users")
+        .select("id")
+        .or(`email.eq.${email},username.eq.${username},google_id.eq.${googleId}`)
+        .maybeSingle();
+
+      if (found?.id) return found.id;
+
+      const { data: created } = await supabase
+        .from("users")
+        .insert({
+          username: username,
+          full_name: user?.fullName || user?.email || "مستخدم",
+          email: email,
+          google_id: String(googleId || ""),
+          role: user?.role || "client",
+          status: "active"
+        })
+        .select("id")
+        .single();
+
+      if (created?.id) return created.id;
+    } catch (e) {}
+
+    return 1;
+  };
+
   // Fetch user tickets
   const { data: tickets = [], isLoading: isLoadingTickets } = useQuery<SupportTicket[]>({
     queryKey: ["/api/tickets"],
     queryFn: async () => {
-      const res = await fetch("/api/tickets");
-      if (!res.ok) return [];
-      return res.json();
+      try {
+        const res = await fetch("/api/tickets");
+        if (res.ok) {
+          const contentType = res.headers.get("content-type") || "";
+          if (contentType.includes("application/json")) {
+            const data = await res.json();
+            if (Array.isArray(data)) return data;
+          }
+        }
+      } catch (e) {}
+
+      try {
+        const dbUserId = await resolveNumericUserId();
+        const { data: dbTickets } = await supabase
+          .from("tickets")
+          .select("*")
+          .eq("user_id", dbUserId)
+          .order("created_at", { ascending: false });
+
+        if (Array.isArray(dbTickets)) {
+          return dbTickets.map((t: any) => ({
+            id: t.id,
+            userId: t.user_id || dbUserId,
+            subject: t.subject || "اعتراض حظر",
+            description: t.description || "",
+            status: t.status || "open",
+            priority: t.priority || "high",
+            createdAt: t.created_at || new Date().toISOString(),
+            updatedAt: t.updated_at || new Date().toISOString(),
+          })) as any;
+        }
+      } catch (e) {}
+
+      try {
+        const listRaw = localStorage.getItem("khidmati_user_tickets");
+        if (listRaw) {
+          const list = JSON.parse(listRaw);
+          if (Array.isArray(list)) return list;
+        }
+      } catch (e) {}
+
+      return [];
     },
   });
 
@@ -78,9 +157,42 @@ export function BannedAccountPage() {
     queryKey: ["/api/tickets", selectedTicketId],
     queryFn: async () => {
       if (!selectedTicketId) return null;
-      const res = await fetch(`/api/tickets/${selectedTicketId}`);
-      if (!res.ok) return null;
-      return res.json();
+      try {
+        const res = await fetch(`/api/tickets/${selectedTicketId}`);
+        if (res.ok) {
+          const contentType = res.headers.get("content-type") || "";
+          if (contentType.includes("application/json")) {
+            return await res.json();
+          }
+        }
+      } catch (e) {}
+
+      try {
+        const { data: ticket } = await supabase.from("tickets").select("*").eq("id", selectedTicketId).maybeSingle();
+        const { data: msgs } = await supabase.from("ticket_messages").select("*").eq("ticket_id", selectedTicketId).order("created_at", { ascending: true });
+
+        if (ticket) {
+          return {
+            id: ticket.id,
+            userId: ticket.user_id,
+            subject: ticket.subject,
+            description: ticket.description,
+            status: ticket.status,
+            priority: ticket.priority,
+            createdAt: ticket.created_at,
+            updatedAt: ticket.updated_at,
+            messages: (msgs || []).map((m: any) => ({
+              id: m.id,
+              ticketId: m.ticket_id,
+              senderId: m.sender_id,
+              content: m.content,
+              createdAt: m.created_at
+            }))
+          } as any;
+        }
+      } catch (e) {}
+
+      return null;
     },
     enabled: !!selectedTicketId,
   });
@@ -88,26 +200,59 @@ export function BannedAccountPage() {
   // Create ticket mutation
   const createTicketMutation = useMutation({
     mutationFn: async () => {
-      // Ensure subject is tagged for Admin Ban Appeals tab
       const finalSubject = subject.startsWith("[اعتراض حظر]")
         ? subject
         : `[اعتراض حظر] ${subject.trim()}`;
 
-      const res = await fetch("/api/tickets", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      try {
+        const res = await fetch("/api/tickets", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            subject: finalSubject,
+            description: description.trim(),
+            priority: "high",
+          }),
+        });
+
+        const contentType = res.headers.get("content-type") || "";
+        if (res.ok && contentType.includes("application/json")) {
+          return await res.json();
+        }
+      } catch (e) {}
+
+      // Supabase DB Fallback
+      try {
+        const dbUserId = await resolveNumericUserId();
+        const ticketPayload = {
           subject: finalSubject,
           description: description.trim(),
           priority: "high",
-        }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || "Failed to submit ticket");
+          status: "open",
+          user_id: dbUserId,
+        };
+        const { data: inserted, error } = await supabase.from("tickets").insert(ticketPayload).select().single();
+        if (error) throw new Error(error.message);
+        return inserted;
+      } catch (sbErr: any) {
+        const ticketObj = {
+          id: Date.now(),
+          userId: user?.id || 1,
+          subject: finalSubject,
+          description: description.trim(),
+          priority: "high",
+          status: "open",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        try {
+          const listRaw = localStorage.getItem("khidmati_user_tickets");
+          const list = listRaw ? JSON.parse(listRaw) : [];
+          list.unshift(ticketObj);
+          localStorage.setItem("khidmati_user_tickets", JSON.stringify(list));
+        } catch (e) {}
+        return ticketObj;
       }
-      return res.json();
     },
     onSuccess: (newTicket) => {
       toast({

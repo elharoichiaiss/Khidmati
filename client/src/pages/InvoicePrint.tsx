@@ -5,6 +5,10 @@ import { Loader2, Printer, MapPin, Phone, Mail, Download } from "lucide-react";
 import { Button } from "@heroui/react";
 import { useLanguage } from "@/hooks/use-language";
 
+import { supabase } from "@/lib/supabase";
+
+const isLocalhost = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+
 export default function InvoicePrint() {
   const { id } = useParams<{ id: string }>();
   const { t, language } = useLanguage();
@@ -12,9 +16,38 @@ export default function InvoicePrint() {
   const { data: invoice, isLoading } = useQuery({
     queryKey: [`/api/invoices/${id}`],
     queryFn: async () => {
-      const res = await fetch(`/api/invoices/${id}`, { credentials: "include" });
-      if (!res.ok) throw new Error("Invoice not found");
-      return res.json();
+      if (isLocalhost) {
+        try {
+          const res = await fetch(`/api/invoices/${id}`, { credentials: "include" });
+          const contentType = res.headers.get("content-type") || "";
+          if (res.ok && contentType.includes("application/json")) {
+            return await res.json();
+          }
+        } catch (e) {}
+      }
+
+      const { data, error } = await supabase
+        .from("invoices")
+        .select("*")
+        .eq("id", Number(id))
+        .maybeSingle();
+
+      if (error || !data) throw new Error("Invoice not found");
+
+      return {
+        id: data.id,
+        conversationId: data.conversation_id,
+        providerId: data.provider_id,
+        clientId: data.client_id,
+        clientName: data.client_name || "عميل",
+        clientPhone: data.client_phone || "",
+        serviceType: data.service_type || "خدمات عامة",
+        description: data.description || "",
+        agreedPrice: Number(data.agreed_price) || 0,
+        status: data.status,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+      };
     },
     enabled: !!id,
   });
@@ -23,9 +56,29 @@ export default function InvoicePrint() {
     queryKey: [`/api/users/${invoice?.providerId}`],
     queryFn: async () => {
       if (!invoice?.providerId) return null;
-      const res = await fetch(`/api/users/${invoice.providerId}`, { credentials: "include" });
-      if (!res.ok) throw new Error("Provider not found");
-      return res.json();
+      if (isLocalhost) {
+        try {
+          const res = await fetch(`/api/users/${invoice.providerId}`, { credentials: "include" });
+          const contentType = res.headers.get("content-type") || "";
+          if (res.ok && contentType.includes("application/json")) {
+            return await res.json();
+          }
+        } catch (e) {}
+      }
+
+      const { data } = await supabase
+        .from("users")
+        .select("*")
+        .eq("id", invoice.providerId)
+        .maybeSingle();
+
+      return data ? {
+        id: data.id,
+        fullName: data.full_name || data.username || "مزود الخدمة",
+        phone: data.phone || "",
+        email: data.email || "",
+        city: data.city || "",
+      } : null;
     },
     enabled: !!invoice?.providerId,
   });

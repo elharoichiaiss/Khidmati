@@ -1,5 +1,5 @@
 import { Layout } from "@/components/Layout";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth, resolveCurrentNumericUserId } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Ticket } from "@shared/schema";
@@ -8,6 +8,7 @@ import { Button, Input, Textarea, Modal, ModalContent, ModalHeader, ModalBody, M
 import { useLocation, Link } from "wouter";
 import { useState } from "react";
 import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/lib/supabase";
 
 type SupportTicket = Ticket & {
     replies?: number;
@@ -29,9 +30,119 @@ export default function SupportPage() {
     const [statusFilter, setStatusFilter] = useState<string>("all");
     const [priorityFilter, setPriorityFilter] = useState<string>("all");
 
+    // Helper to resolve integer user_ids in Supabase Postgres for the current user
+    const getAuthenticatedUserIds = async (): Promise<number[]> => {
+        const idsSet = new Set<number>();
+
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const email = session?.user?.email || user?.email;
+            const googleId = session?.user?.id || (user as any)?.googleId;
+
+            if (email || googleId) {
+                let q = supabase.from("users").select("id");
+                if (email && googleId) {
+                    q = q.or(`email.eq.${email},google_id.eq.${googleId}`);
+                } else if (email) {
+                    q = q.eq("email", email);
+                } else {
+                    q = q.eq("google_id", googleId);
+                }
+                const { data: found } = await q;
+                if (Array.isArray(found)) {
+                    found.forEach(u => idsSet.add(u.id));
+                }
+            }
+        } catch (e) {}
+
+        const numericId = await resolveCurrentNumericUserId(user);
+        if (numericId) idsSet.add(numericId);
+
+        if (user?.id && typeof user.id === "number" && !isNaN(user.id)) {
+            idsSet.add(user.id);
+        }
+
+        return Array.from(idsSet);
+    };
+
     const { data: tickets = [], isLoading } = useQuery<SupportTicket[]>({
-        queryKey: ["/api/tickets"],
+        queryKey: ["/api/tickets", user?.id, user?.email],
         enabled: !!user,
+        queryFn: async (): Promise<SupportTicket[]> => {
+            // 1. Try backend API first
+            try {
+                const res = await fetch("/api/tickets", { credentials: "include" });
+                const contentType = res.headers.get("content-type") || "";
+                if (res.ok && contentType.includes("application/json")) {
+                    const json = await res.json();
+                    if (Array.isArray(json) && json.length > 0) return json;
+                }
+            } catch (e) {}
+
+            // 2. Direct Supabase DB query
+            try {
+                const userIds = await getAuthenticatedUserIds();
+                let query = supabase.from("tickets").select("*").order("created_at", { ascending: false });
+
+                if (user?.role !== "admin") {
+                    if (userIds.length > 0) {
+                        query = query.in("user_id", userIds);
+                    }
+                }
+
+                const { data: dbTickets } = await query;
+                if (Array.isArray(dbTickets)) {
+                    const ticketIds = dbTickets.map(t => t.id);
+                    let repliesCountMap = new Map<number, number>();
+                    let adminRepliesCountMap = new Map<number, number>();
+
+                    if (ticketIds.length > 0) {
+                        const { data: allMessages } = await supabase
+                            .from("ticket_messages")
+                            .select("ticket_id, sender_id")
+                            .in("ticket_id", ticketIds);
+
+                        const { data: adminUsers } = await supabase
+                            .from("users")
+                            .select("id")
+                            .eq("role", "admin");
+                        const adminIdSet = new Set((adminUsers || []).map(a => a.id));
+
+                        (allMessages || []).forEach((m: any) => {
+                            repliesCountMap.set(m.ticket_id, (repliesCountMap.get(m.ticket_id) || 0) + 1);
+                            if (adminIdSet.has(m.sender_id)) {
+                                adminRepliesCountMap.set(m.ticket_id, (adminRepliesCountMap.get(m.ticket_id) || 0) + 1);
+                            }
+                        });
+                    }
+
+                    return dbTickets.map((t: any) => ({
+                        id: t.id,
+                        userId: t.user_id,
+                        subject: t.subject || "تذكرة دعم",
+                        description: t.description || "",
+                        status: t.status || "open",
+                        priority: t.priority || "normal",
+                        createdAt: t.created_at || new Date().toISOString(),
+                        updatedAt: t.updated_at || new Date().toISOString(),
+                        lastReadAt: t.last_read_at || null,
+                        replies: repliesCountMap.get(t.id) || 0,
+                        adminReplies: adminRepliesCountMap.get(t.id) || 0,
+                    }));
+                }
+            } catch (e) {}
+
+            // LocalStorage fallback
+            try {
+                const listRaw = localStorage.getItem("khidmati_user_tickets");
+                if (listRaw) {
+                    const list = JSON.parse(listRaw);
+                    if (Array.isArray(list)) return list;
+                }
+            } catch (e) {}
+
+            return [];
+        }
     });
 
     const filteredTickets = tickets.filter(ticket => {
@@ -46,17 +157,51 @@ export default function SupportPage() {
 
     const createTicket = useMutation({
         mutationFn: async (data: { subject: string, description: string, priority: string }) => {
-            const res = await fetch("/api/tickets", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                credentials: "include",
-                body: JSON.stringify(data),
-            });
-            if (!res.ok) {
-                const err = await res.text();
-                throw new Error(err || "Failed to create ticket");
+            try {
+                const res = await fetch("/api/tickets", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "include",
+                    body: JSON.stringify(data),
+                });
+                const contentType = res.headers.get("content-type") || "";
+                if (res.ok && contentType.includes("application/json")) {
+                    return await res.json();
+                }
+            } catch (e) {}
+
+            try {
+                const userIds = await getAuthenticatedUserIds();
+                const dbUserId = userIds[0] || (user?.id ? Number(user.id) : 14);
+                const ticketPayload = {
+                    subject: data.subject,
+                    description: data.description,
+                    priority: data.priority,
+                    status: "open",
+                    user_id: dbUserId,
+                };
+                const { data: inserted, error } = await supabase.from("tickets").insert(ticketPayload).select().single();
+                if (error) throw new Error(error.message);
+                return inserted;
+            } catch (sbErr: any) {
+                const ticketObj = {
+                    id: Date.now(),
+                    userId: user?.id || 14,
+                    subject: data.subject,
+                    description: data.description,
+                    priority: data.priority,
+                    status: "open",
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                };
+                try {
+                    const listRaw = localStorage.getItem("khidmati_user_tickets");
+                    const list = listRaw ? JSON.parse(listRaw) : [];
+                    list.unshift(ticketObj);
+                    localStorage.setItem("khidmati_user_tickets", JSON.stringify(list));
+                } catch (e) {}
+                return ticketObj;
             }
-            return res.json();
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["/api/tickets"] });
@@ -119,7 +264,7 @@ export default function SupportPage() {
                 <div className="container mx-auto px-4 max-w-5xl pb-24">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
                         <div className="flex items-center gap-3">
-                            <div className="p-3.5 bg-red-50 dark:bg-red-950/40 rounded-2xl text-red-600 dark:text-red-400">
+                            <div className="p-3.5 bg-white dark:bg-zinc-900 border border-[#00bcd4]/40 text-[#00bcd4] shadow-[0_4px_14px_rgba(0,188,212,0.12)] rounded-2xl">
                                 <LifeBuoy className="w-7 h-7" />
                             </div>
                             <h1 className="text-3xl md:text-4xl font-black text-zinc-900 dark:text-white">

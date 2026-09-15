@@ -4,7 +4,6 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { setupSecurityHeaders, validateSessionSecret, authLimiter, apiLimiter, uploadLimiter } from "./security";
-import { setupVite } from "./vite";
 
 const app = express();
 const httpServer = createServer(app);
@@ -98,6 +97,7 @@ app.use((req, res, next) => {
     });
     serveStatic(app);
   } else {
+    const { setupVite } = await import("./vite");
     await setupVite(server, app);
   }
 

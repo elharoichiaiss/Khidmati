@@ -2,7 +2,8 @@ import { Layout } from "@/components/Layout";
 import { useProvider } from "@/hooks/use-providers";
 import { useReviews } from "@/hooks/use-reviews";
 import { useStartConversation } from "@/hooks/use-messages";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth, resolveCurrentNumericUserId } from "@/hooks/use-auth";
+import { supabase } from "@/lib/supabase";
 import { useLanguage } from "@/hooks/use-language";
 import { useLocation, useRoute } from "wouter";
 import { Avatar, Button, Skeleton, Textarea, Modal, ModalContent } from "@heroui/react";
@@ -98,16 +99,58 @@ export default function ProviderDetail() {
 
   const bookingMutation = useMutation({
     mutationFn: async (data: { providerId: number; date: string; description: string }) => {
-      const res = await fetch("/api/bookings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || "Booking failed");
+      // 1. Try Express API first
+      try {
+        const res = await fetch("/api/bookings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+          credentials: "include",
+        });
+        const contentType = res.headers.get("content-type") || "";
+        if (res.ok && contentType.includes("application/json")) {
+          return await res.json();
+        }
+      } catch (e) {}
+
+      // 2. Direct Supabase DB Fallback
+      const clientNumericId = await resolveCurrentNumericUserId(user);
+      const bookingPayload = {
+        client_id: clientNumericId,
+        provider_id: Number(data.providerId),
+        date: new Date(data.date).toISOString(),
+        description: data.description || null,
+        status: "pending",
+        price: 0,
+        created_at: new Date().toISOString(),
+      };
+
+      const { data: newBooking, error: bookingErr } = await supabase
+        .from("bookings")
+        .insert(bookingPayload)
+        .select()
+        .single();
+
+      if (bookingErr) {
+        console.error("Supabase booking insert error:", bookingErr);
+        throw new Error(bookingErr.message || "Failed to create booking");
       }
-      return res.json();
+
+      // Notification for the provider
+      try {
+        await supabase.from("notifications").insert({
+          user_id: Number(data.providerId),
+          type: "booking_update",
+          message: `طلب حجز جديد من ${user?.fullName || user?.username || "مستخدم"} 📅`,
+          link: "/provider/bookings",
+          read: false,
+          created_at: new Date().toISOString(),
+        });
+      } catch (notifErr) {
+        console.warn("Could not insert notification:", notifErr);
+      }
+
+      return newBooking;
     },
     onSuccess: () => {
       toast({
@@ -117,6 +160,9 @@ export default function ProviderDetail() {
       setBookingOpen(false);
       setBookingDate("");
       setBookingDescription("");
+      queryClient.invalidateQueries({ queryKey: ["/api/my-bookings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/provider/my-bookings"] });
     },
     onError: (err: Error) => {
       toast({ title: t("error"), description: err.message, variant: "destructive" });
@@ -125,16 +171,45 @@ export default function ProviderDetail() {
 
   const createReview = useMutation({
     mutationFn: async (data: any) => {
-      const res = await fetch("/api/reviews", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...data, providerId: id }),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || "Failed to submit review");
+      try {
+        const res = await fetch("/api/reviews", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...data, providerId: id }),
+          credentials: "include",
+        });
+        if (res.ok) {
+          const contentType = res.headers.get("content-type") || "";
+          if (contentType.includes("application/json")) return await res.json();
+        }
+      } catch (e) {}
+
+      const clientNumericId = await resolveCurrentNumericUserId(user);
+      const { data: existingReview } = await supabase
+        .from("reviews")
+        .select("id")
+        .eq("client_id", clientNumericId)
+        .eq("provider_id", id)
+        .maybeSingle();
+
+      if (existingReview) {
+        throw new Error("already_reviewed");
       }
-      return res.json();
+
+      const { data: newReview, error: revErr } = await supabase
+        .from("reviews")
+        .insert({
+          client_id: clientNumericId,
+          provider_id: id,
+          rating: data.rating || 5,
+          comment: data.comment || "",
+          created_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (revErr) throw new Error(revErr.message || "Failed to submit review");
+      return newReview;
     },
     onSuccess: () => {
       toast({ title: t("submitReview") });
@@ -158,21 +233,60 @@ export default function ProviderDetail() {
     },
   });
 
-
   const { data: favData } = useQuery<{ favorited: boolean }>({
     queryKey: [`/api/favorites/${id}/check`],
     enabled: !!user && !!id,
+    queryFn: async () => {
+      try {
+        const res = await fetch(`/api/favorites/${id}/check`, { credentials: "include" });
+        if (res.ok) {
+          const contentType = res.headers.get("content-type") || "";
+          if (contentType.includes("application/json")) return await res.json();
+        }
+      } catch (e) {}
+
+      const clientNumericId = await resolveCurrentNumericUserId(user);
+      const { data } = await supabase
+        .from("favorites")
+        .select("id")
+        .eq("client_id", clientNumericId)
+        .eq("provider_id", id)
+        .maybeSingle();
+
+      return { favorited: !!data };
+    },
   });
   const isFavorited = favData?.favorited;
 
   const toggleFavorite = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`/api/favorites/${id}`, { method: "POST" });
-      if (!res.ok) throw new Error("Failed to toggle favorite");
-      return res.json();
+      try {
+        const res = await fetch(`/api/favorites/${id}`, { method: "POST", credentials: "include" });
+        if (res.ok) {
+          const contentType = res.headers.get("content-type") || "";
+          if (contentType.includes("application/json")) return await res.json();
+        }
+      } catch (e) {}
+
+      const clientNumericId = await resolveCurrentNumericUserId(user);
+      const { data: existing } = await supabase
+        .from("favorites")
+        .select("id")
+        .eq("client_id", clientNumericId)
+        .eq("provider_id", id)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase.from("favorites").delete().eq("id", existing.id);
+        return { favorited: false };
+      } else {
+        await supabase.from("favorites").insert({ client_id: clientNumericId, provider_id: id });
+        return { favorited: true };
+      }
     },
     onSuccess: (data) => {
       queryClient.setQueryData([`/api/favorites/${id}/check`], data);
+      queryClient.invalidateQueries({ queryKey: ["/api/favorites"] });
       toast({
         title: data.favorited
           ? (language === "ar" ? "تمت الإضافة إلى المفضلة ❤️" : language === "fr" ? "Ajouté aux favoris ❤️" : "Added to favorites ❤️")
@@ -317,7 +431,7 @@ export default function ProviderDetail() {
                   showFallback
                   fallback={
                     <span className="text-2xl font-black text-white rounded-2xl flex items-center justify-center w-full h-full" style={{ background: "linear-gradient(135deg, #00bcd4, #0ea5e9)" }}>
-                      {provider.fullName[0]}
+                      {(provider.fullName || provider.username || "P")[0]?.toUpperCase() || "P"}
                     </span>
                   }
                   className="w-24 h-24 border-4 bg-zinc-50 dark:bg-zinc-800 shadow-md rounded-2xl"
@@ -634,7 +748,7 @@ export default function ProviderDetail() {
                               showFallback
                               fallback={
                                 <span className="text-sm font-bold text-white flex items-center justify-center w-full h-full" style={{ background: "linear-gradient(135deg, #00bcd4, #0ea5e9)" }}>
-                                  {review.client.fullName[0]}
+                                  {(review.client?.fullName || review.client?.username || "U")[0]?.toUpperCase() || "U"}
                                 </span>
                               }
                               className="w-10 h-10"
@@ -736,7 +850,7 @@ export default function ProviderDetail() {
                 showFallback
                 fallback={
                   <span className="text-xl font-bold text-white rounded-2xl flex items-center justify-center w-full h-full" style={{ background: "linear-gradient(135deg, #00bcd4, #0ea5e9)" }}>
-                    {provider.fullName[0]}
+                    {(provider.fullName || provider.username || "P")[0]?.toUpperCase() || "P"}
                   </span>
                 }
                 className="w-14 h-14 border-2 shadow-md rounded-2xl flex-shrink-0"

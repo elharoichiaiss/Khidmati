@@ -137,7 +137,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   );
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] dark:bg-black flex flex-col md:flex-row overflow-x-hidden" dir="rtl">
+    <div className="min-h-screen bg-[#f8fafc] dark:bg-black md:grid md:grid-cols-[260px_1fr] flex flex-col max-w-full overflow-x-hidden" dir="rtl">
       {/* Mobile Header */}
       <div className="md:hidden flex items-center justify-between p-4 bg-white dark:bg-zinc-900 border-b border-gray-100 dark:border-zinc-800 sticky top-0 z-40 shadow-sm w-full">
         <div className="flex items-center gap-2.5">
@@ -161,12 +161,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </div>
 
       {/* Desktop Sidebar */}
-      <div className="hidden md:flex w-[260px] flex-col fixed inset-y-0 right-0 z-30">
+      <aside className="hidden md:flex w-[260px] shrink-0 flex-col sticky top-0 h-screen z-30 border-l border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-900">
         <NavContent />
-      </div>
+      </aside>
 
       {/* Main content */}
-      <div className="md:pr-[260px] flex flex-col flex-1 min-w-0 w-full overflow-x-hidden">
+      <div className="flex flex-col flex-1 min-w-0 w-full overflow-x-hidden">
         <main className="flex-1 w-full max-w-full overflow-x-hidden">
           <div className="py-2 sm:py-6 md:py-10">
             <div className="max-w-7xl mx-auto px-2 sm:px-6 md:px-10 w-full max-w-full overflow-x-hidden">

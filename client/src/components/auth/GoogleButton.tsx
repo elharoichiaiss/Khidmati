@@ -13,10 +13,20 @@ export function GoogleButton({ label = "المتابعة بواسطة Google", c
   const handleClick = async () => {
     try {
       setIsLoading(true);
+      // Clear existing session state to ensure fresh Google OAuth account selection
+      try {
+        await supabase.auth.signOut();
+        localStorage.removeItem("khidmati_user_profile");
+        localStorage.removeItem("app_mode");
+      } catch {}
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
           redirectTo: window.location.origin + "/complete-profile",
+          queryParams: {
+            prompt: "select_account",
+          },
         },
       });
       if (error) {

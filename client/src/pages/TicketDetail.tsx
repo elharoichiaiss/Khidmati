@@ -1,5 +1,5 @@
 import { Layout } from "@/components/Layout";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth, resolveCurrentNumericUserId } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Ticket, TicketMessage, User } from "@shared/schema";
@@ -8,6 +8,7 @@ import { Button, Input, Chip, Avatar } from "@heroui/react";
 import { useLocation, useParams, Link } from "wouter";
 import { useState, useRef, useEffect } from "react";
 import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/lib/supabase";
 
 type FullTicket = Ticket & {
     user: User;
@@ -26,21 +27,161 @@ export default function TicketDetailPage() {
     const isAdminRoute = location.startsWith('/k-admin-portal-secure/');
     const apiBase = isAdminRoute ? '/api/admin/tickets' : '/api/tickets';
 
-    const { data: ticket, isLoading } = useQuery<FullTicket>({
+    const { data: ticket, isLoading } = useQuery<FullTicket | null>({
         queryKey: [`${apiBase}/${id}`],
-        enabled: (!!user || isAdminRoute) && !!id,
+        enabled: !!id,
+        queryFn: async (): Promise<FullTicket | null> => {
+            const ticketId = Number(id);
+            if (!ticketId) return null;
+
+            // 1. Try backend API first
+            try {
+                const res = await fetch(`${apiBase}/${id}`, { credentials: "include" });
+                const contentType = res.headers.get("content-type") || "";
+                if (res.ok && contentType.includes("application/json")) {
+                    const json = await res.json();
+                    if (json && json.id) return json;
+                }
+            } catch (e) {}
+
+            // 2. Direct Supabase Query Fallback
+            try {
+                const { data: tData, error: tErr } = await supabase
+                    .from("tickets")
+                    .select("*")
+                    .eq("id", ticketId)
+                    .maybeSingle();
+
+                if (tErr || !tData) return null;
+
+                // Resolve ticket owner user
+                let userObj: any = {
+                    id: tData.user_id || 0,
+                    fullName: tData.userName || tData.user_name || "مستخدم",
+                    username: tData.userEmail ? tData.userEmail.split("@")[0] : "user",
+                    email: tData.userEmail || "",
+                    role: "client",
+                    isBanned: false,
+                };
+
+                if (tData.user_id) {
+                    const { data: u } = await supabase
+                        .from("users")
+                        .select("*")
+                        .eq("id", tData.user_id)
+                        .maybeSingle();
+                    if (u) {
+                        userObj = {
+                            id: u.id,
+                            fullName: u.full_name || u.fullName || userObj.fullName,
+                            username: u.username || userObj.username,
+                            email: u.email || userObj.email,
+                            role: u.role || "client",
+                            isBanned: Boolean(u.is_banned ?? u.isBanned ?? false),
+                        };
+                    }
+                }
+
+                // Fetch ticket messages
+                const { data: rawMsgs } = await supabase
+                    .from("ticket_messages")
+                    .select("*")
+                    .eq("ticket_id", ticketId)
+                    .order("created_at", { ascending: true });
+
+                const senderIds = Array.from(new Set((rawMsgs || []).map((m: any) => m.sender_id).filter(Boolean)));
+                const senderMap = new Map<number, any>();
+                if (senderIds.length > 0) {
+                    const { data: senders } = await supabase
+                        .from("users")
+                        .select("*")
+                        .in("id", senderIds);
+                    (senders || []).forEach((s: any) => senderMap.set(s.id, s));
+                }
+
+                const messages = (rawMsgs || []).map((m: any) => {
+                    const s = senderMap.get(m.sender_id) || {};
+                    const isSenderAdmin = s.role === "admin" || m.sender_role === "admin";
+                    return {
+                        id: m.id,
+                        ticketId: m.ticket_id,
+                        senderId: m.sender_id,
+                        content: m.content || "",
+                        createdAt: m.created_at,
+                        sender: {
+                            id: m.sender_id,
+                            fullName: isSenderAdmin ? "Administrator" : (s.full_name || s.fullName || "مستخدم"),
+                            username: s.username || "user",
+                            email: s.email || "",
+                            role: s.role || (isSenderAdmin ? "admin" : "client"),
+                        }
+                    };
+                });
+
+                return {
+                    id: tData.id,
+                    userId: tData.user_id,
+                    subject: tData.subject || "بدون عنوان",
+                    description: tData.description || "",
+                    status: tData.status || "open",
+                    priority: tData.priority || "normal",
+                    createdAt: tData.created_at || new Date().toISOString(),
+                    updatedAt: tData.updated_at || new Date().toISOString(),
+                    user: userObj,
+                    messages: messages as any,
+                } as any;
+            } catch (e) {
+                console.error("TicketDetail Supabase query error:", e);
+            }
+
+            return null;
+        }
     });
 
     const sendMessage = useMutation({
         mutationFn: async (content: string) => {
-            const res = await fetch(`${apiBase}/${id}/messages`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                credentials: "include",
-                body: JSON.stringify({ content }),
-            });
-            if (!res.ok) throw new Error("Failed to send message");
-            return res.json();
+            const ticketId = Number(id);
+            try {
+                const res = await fetch(`${apiBase}/${id}/messages`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "include",
+                    body: JSON.stringify({ content }),
+                });
+                const contentType = res.headers.get("content-type") || "";
+                if (res.ok && contentType.includes("application/json")) {
+                    return await res.json();
+                }
+            } catch (e) {}
+
+            // Supabase fallback
+            let senderNumericId: number;
+            if (isAdminRoute) {
+                const { data: adminRow } = await supabase.from("users").select("id").eq("role", "admin").limit(1).maybeSingle();
+                senderNumericId = adminRow?.id || 11;
+            } else {
+                senderNumericId = await resolveCurrentNumericUserId(user);
+            }
+
+            const { data: newMsg, error } = await supabase
+                .from("ticket_messages")
+                .insert({
+                    ticket_id: ticketId,
+                    sender_id: senderNumericId,
+                    content,
+                    created_at: new Date().toISOString()
+                })
+                .select()
+                .single();
+
+            if (error) throw new Error(error.message);
+
+            await supabase
+                .from("tickets")
+                .update({ updated_at: new Date().toISOString() })
+                .eq("id", ticketId);
+
+            return newMsg;
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: [`${apiBase}/${id}`] });
@@ -53,14 +194,30 @@ export default function TicketDetailPage() {
 
     const updateStatus = useMutation({
         mutationFn: async (status: string) => {
-            const res = await fetch(`${apiBase}/${id}/status`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                credentials: "include",
-                body: JSON.stringify({ status }),
-            });
-            if (!res.ok) throw new Error("Failed to update status");
-            return res.json();
+            const ticketId = Number(id);
+            try {
+                const res = await fetch(`${apiBase}/${id}/status`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "include",
+                    body: JSON.stringify({ status }),
+                });
+                const contentType = res.headers.get("content-type") || "";
+                if (res.ok && contentType.includes("application/json")) {
+                    return await res.json();
+                }
+            } catch (e) {}
+
+            // Supabase fallback
+            const { data: updated, error } = await supabase
+                .from("tickets")
+                .update({ status, updated_at: new Date().toISOString() })
+                .eq("id", ticketId)
+                .select()
+                .single();
+
+            if (error) throw new Error(error.message);
+            return updated;
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: [`${apiBase}/${id}`] });
@@ -164,7 +321,7 @@ export default function TicketDetailPage() {
                             <div className="font-semibold">
                                 {ticketOwnerName}
                                 <span className="text-xs font-normal text-muted-foreground ml-2">
-                                    {new Date(ticket.createdAt!).toLocaleString()}
+                                    {ticket.createdAt ? new Date(ticket.createdAt).toLocaleString("ar-MA") : "-"}
                                 </span>
                             </div>
                             <p className="text-foreground mt-2 whitespace-pre-wrap">{ticket.description}</p>
@@ -174,12 +331,12 @@ export default function TicketDetailPage() {
 
                 {/* Messages */}
                 <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50/50">
-                    {ticket.messages.length === 0 ? (
+                    {(!ticket.messages || ticket.messages.length === 0) ? (
                         <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
                             {t("noRepliesYet")}
                         </div>
                     ) : (
-                        ticket.messages.map((msg) => {
+                        (ticket.messages || []).map((msg) => {
                             const sender = msg.sender;
                             const isSupportAdmin = sender?.role === 'admin';
                             

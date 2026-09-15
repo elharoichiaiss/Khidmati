@@ -9,6 +9,7 @@ import { useLocation } from "wouter";
 import { useState, useMemo } from "react";
 import { toast } from "@/hooks/use-toast";
 import { useStartConversation } from "@/hooks/use-messages";
+import { supabase } from "@/lib/supabase";
 
 type BookingRow = {
   booking: Booking;
@@ -37,18 +38,91 @@ export default function ProviderBookings() {
   const { data: bookings = [], isLoading } = useQuery<BookingRow[]>({
     queryKey: ["/api/provider/my-bookings"],
     enabled: !!user,
+    queryFn: async (): Promise<BookingRow[]> => {
+      try {
+        const res = await fetch("/api/provider/my-bookings", { credentials: "include" });
+        const contentType = res.headers.get("content-type") || "";
+        if (res.ok && contentType.includes("application/json")) {
+          const data = await res.json();
+          if (Array.isArray(data)) return data;
+        }
+      } catch (e) {}
+
+      try {
+        const targetStr = String(user?.id || user?.email || "");
+        let numericDbId: number | null = /^\d+$/.test(targetStr) ? Number(targetStr) : null;
+        if (!numericDbId) {
+          const { data: found } = await supabase.from("users").select("id").or(`email.eq.${user?.email},google_id.eq.${user?.id}`).maybeSingle();
+          if (found?.id) numericDbId = found.id;
+        }
+
+        if (numericDbId) {
+          const { data: dbBookings } = await supabase.from("bookings").select("*").eq("provider_id", numericDbId).order("created_at", { ascending: false });
+          if (Array.isArray(dbBookings)) {
+            const clientIds = Array.from(new Set(dbBookings.map((b: any) => b.client_id)));
+            const { data: dbClients } = await supabase.from("users").select("*").in("id", clientIds.length > 0 ? clientIds : [0]);
+            const clientsMap = new Map((dbClients || []).map((c: any) => [c.id, c]));
+
+            return dbBookings.map((b: any) => {
+              const cli: any = clientsMap.get(b.client_id) || {};
+              return {
+                booking: {
+                  id: b.id,
+                  clientId: b.client_id,
+                  providerId: b.provider_id,
+                  date: b.date || b.created_at,
+                  status: b.status || "pending",
+                  price: b.price || 0,
+                  description: b.description || "",
+                  createdAt: b.created_at
+                },
+                client: {
+                  id: cli.id || b.client_id,
+                  fullName: cli.full_name || cli.fullName || cli.email || "عميل",
+                  username: cli.username || "client",
+                  email: cli.email || null,
+                  phone: cli.phone || null,
+                  city: cli.city || "",
+                  profileImage: cli.profile_image || cli.avatar || null,
+                  role: "client",
+                  status: "active",
+                  isBanned: false,
+                  isVerified: true
+                } as any
+              };
+            });
+          }
+        }
+      } catch (e) {}
+
+      return [];
+    }
   });
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status, price }: { id: number; status: string; price?: number }) => {
-      const res = await fetch(`/api/bookings/${id}/status`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status, price }),
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed");
-      return res.json();
+      try {
+        const res = await fetch(`/api/bookings/${id}/status`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status, price }),
+          credentials: "include",
+        });
+        const contentType = res.headers.get("content-type") || "";
+        if (res.ok && contentType.includes("application/json")) {
+          return await res.json();
+        }
+      } catch (e) {}
+
+      try {
+        const payload: any = { status };
+        if (price !== undefined) payload.price = price;
+        const { data: updated, error } = await supabase.from("bookings").update(payload).eq("id", id).select().single();
+        if (error) throw new Error(error.message);
+        return updated;
+      } catch (e: any) {
+        throw new Error(e?.message || "Failed to update booking status");
+      }
     },
     onSuccess: async (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/provider/my-bookings"] });
@@ -130,7 +204,7 @@ export default function ProviderBookings() {
         <div className="container mx-auto px-4 max-w-5xl pb-24">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
             <div className="flex items-center gap-3">
-              <div className="p-3.5 bg-amber-50 dark:bg-amber-950/40 rounded-2xl text-amber-600 dark:text-amber-400">
+              <div className="p-3.5 bg-white dark:bg-zinc-900 border border-[#00bcd4]/40 text-[#00bcd4] shadow-[0_4px_14px_rgba(0,188,212,0.12)] rounded-2xl">
                 <CalendarDays className="w-7 h-7" />
               </div>
               <h1 className="text-3xl md:text-4xl font-black text-zinc-900 dark:text-white">

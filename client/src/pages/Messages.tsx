@@ -1,6 +1,6 @@
 import { Layout } from "@/components/Layout";
 import { LocationPickerDialog } from "@/components/LocationPickerDialog";
-import { useConversations, useConversation, useSendMessage, useDeleteMessage, useMarkConversationRead, useCreateInvoice, useUpdateInvoiceStatus } from "@/hooks/use-messages";
+import { useConversations, useConversation, useSendMessage, useDeleteMessage, useMarkConversationRead, useCreateInvoice, useUpdateInvoiceStatus, useMessagesRealtime } from "@/hooks/use-messages";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
 import { useLocation, Link } from "wouter";
@@ -191,6 +191,7 @@ export default function Messages() {
   const markRead = useMarkConversationRead();
   const createInvoice = useCreateInvoice();
   const updateInvoiceStatus = useUpdateInvoiceStatus();
+  useMessagesRealtime(activeId || undefined);
 
   const [showInfoPanel, setShowInfoPanel] = useState(window.innerWidth > 1024);
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
@@ -769,7 +770,7 @@ export default function Messages() {
                                           {msg.invoice.status === 'pending_agreement' && (
                                             <>
                                               <p className="text-xs text-amber-500 font-semibold mb-2">{t("pendingClientAgreement")}</p>
-                                              {user.id === msg.invoice.clientId && (
+                                              {(String(user?.id) === String(msg.invoice.clientId || msg.invoice.client_id)) && (
                                                 <div className="flex gap-2 w-full">
                                                   <Button size="sm" className="flex-1 bg-primary text-white font-bold rounded-xl" onPress={() => handleInvoiceAction(msg.invoice.id, 'pending_agreement', 'client')} isLoading={updateInvoiceStatus.isPending}>
                                                     {t("agree")}
@@ -784,7 +785,7 @@ export default function Messages() {
                                           {msg.invoice.status === 'agreed' && (
                                             <>
                                               <p className="text-xs text-blue-500 font-semibold mb-2">{t("agreedAwaitingCash")}</p>
-                                              {user.id === msg.invoice.providerId && (
+                                              {(String(user?.id) === String(msg.invoice.providerId || msg.invoice.provider_id)) && (
                                                 <div className="flex gap-2 w-full">
                                                   <Button size="sm" className="flex-1 bg-blue-500 text-white font-bold rounded-xl" onPress={() => handleInvoiceAction(msg.invoice.id, 'agreed', 'provider')} isLoading={updateInvoiceStatus.isPending}>
                                                     {t("cashReceived")}
@@ -799,7 +800,7 @@ export default function Messages() {
                                           {msg.invoice.status === 'awaiting_confirmation' && (
                                             <>
                                               <p className="text-xs text-purple-500 font-semibold mb-2">{t("awaitingClientConfirmation")}</p>
-                                              {user.id === msg.invoice.clientId && (
+                                              {(String(user?.id) === String(msg.invoice.clientId || msg.invoice.client_id)) && (
                                                 <Button size="sm" className="w-full bg-purple-500 text-white font-bold rounded-xl" onPress={() => handleInvoiceAction(msg.invoice.id, 'awaiting_confirmation', 'client')} isLoading={updateInvoiceStatus.isPending}>
                                                   {t("confirmCashPaid")}
                                                 </Button>

@@ -4,6 +4,7 @@ import type { Ticket, User } from "@shared/schema";
 import { Search, Eye, Headphones } from "lucide-react";
 import { Link } from "wouter";
 import { useState } from "react";
+import { supabase } from "@/lib/supabase";
 import {
   Button,
   Input,
@@ -29,28 +30,92 @@ export default function AdminTicketsPage() {
 
     const { data: tickets, isLoading } = useQuery<AdminTicket[]>({
         queryKey: ["/api/admin/tickets"],
+        queryFn: async () => {
+            try {
+                const res = await fetch("/api/admin/tickets", { credentials: "include" });
+                const contentType = res.headers.get("content-type") || "";
+                if (res.ok && contentType.includes("application/json")) {
+                    const json = await res.json();
+                    if (Array.isArray(json)) {
+                        return json.map((t: any) => {
+                            const u = t.user || {};
+                            return {
+                                ...t,
+                                user: {
+                                    ...u,
+                                    fullName: u.fullName || u.full_name || t.userName || t.user_name || "مستخدم",
+                                    username: u.username || (u.email || t.userEmail || "user").split("@")[0],
+                                    email: u.email || t.userEmail || "",
+                                    isBanned: Boolean(u.isBanned ?? u.is_banned ?? false),
+                                }
+                            };
+                        });
+                    }
+                }
+            } catch (e) {}
+
+            try {
+                const { data: rawTickets } = await supabase.from("tickets").select("*");
+                const { data: usersList } = await supabase.from("users").select("*");
+                const userMap = new Map((usersList || []).map((u: any) => [u.id, u]));
+
+                return (rawTickets || []).map((t: any) => {
+                    const rawUser: any = userMap.get(t.user_id) || {};
+                    const fullName = rawUser.full_name || rawUser.fullName || t.userName || t.user_name || "مستخدم";
+                    const username = rawUser.username || (rawUser.email || t.userEmail || t.user_email || "user").split("@")[0];
+                    const email = rawUser.email || t.userEmail || t.user_email || "";
+                    const isBanned = Boolean(rawUser.is_banned ?? rawUser.isBanned ?? false);
+
+                    return {
+                        ...t,
+                        id: t.id,
+                        subject: t.subject || "بدون عنوان",
+                        status: t.status || "open",
+                        priority: t.priority || "normal",
+                        createdAt: t.created_at || t.createdAt || new Date().toISOString(),
+                        user: {
+                            id: t.user_id || rawUser.id || 0,
+                            fullName,
+                            username,
+                            email,
+                            isBanned,
+                        }
+                    };
+                });
+            } catch (e) {}
+
+            return [];
+        }
     });
 
-    const isBanAppeal = (ticket: AdminTicket) =>
-        ticket.user.isBanned ||
-        ticket.subject.includes("[اعتراض حظر]") ||
-        ticket.subject.toLowerCase().includes("حظر") ||
-        ticket.subject.toLowerCase().includes("ban");
+    const isBanAppeal = (ticket: any) =>
+        Boolean(
+            ticket?.user?.isBanned ||
+            ticket?.user?.is_banned ||
+            ticket?.subject?.includes("[اعتراض حظر]") ||
+            ticket?.subject?.toLowerCase().includes("حظر") ||
+            ticket?.subject?.toLowerCase().includes("ban")
+        );
 
     const banAppealsCount = tickets?.filter(isBanAppeal).length || 0;
     const generalTicketsCount = (tickets?.length || 0) - banAppealsCount;
 
     const filteredTickets = tickets?.filter(ticket => {
+        if (!ticket) return false;
         const isAppeal = isBanAppeal(ticket);
         const matchesCategory =
             categoryFilter === "all" ||
             (categoryFilter === "ban_appeals" && isAppeal) ||
             (categoryFilter === "general" && !isAppeal);
 
+        const searchLower = searchTerm.toLowerCase();
+        const userFullName = String(ticket?.user?.fullName || (ticket?.user as any)?.full_name || "");
+        const userUsername = String(ticket?.user?.username || "");
         const matchesSearch =
-            ticket.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            ticket.user.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            ticket.user.username.toLowerCase().includes(searchTerm.toLowerCase());
+            !searchTerm ||
+            (ticket?.subject && ticket.subject.toLowerCase().includes(searchLower)) ||
+            userFullName.toLowerCase().includes(searchLower) ||
+            userUsername.toLowerCase().includes(searchLower);
 
         const matchesStatus = statusFilter === "all" || ticket.status === statusFilter;
         const matchesPriority = priorityFilter === "all" || ticket.priority === priorityFilter;
@@ -94,7 +159,7 @@ export default function AdminTicketsPage() {
                 <div className="flex flex-col gap-6 mb-8">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div className="flex items-center gap-3">
-                            <div className="p-3.5 bg-orange-50 dark:bg-orange-950/40 rounded-2xl text-orange-600 dark:text-orange-400">
+                            <div className="p-3.5 bg-white dark:bg-zinc-900 border border-[#00bcd4]/40 text-[#00bcd4] shadow-[0_4px_14px_rgba(0,188,212,0.12)] rounded-2xl">
                                 <Headphones className="w-7 h-7" />
                             </div>
                             <div>
@@ -216,6 +281,11 @@ export default function AdminTicketsPage() {
                         >
                             {(ticket) => {
                                 const isAppeal = isBanAppeal(ticket);
+                                const userObj = ticket?.user || ({} as any);
+                                const userName = String(userObj.fullName || userObj.full_name || userObj.username || t("unnamedUser") || "مستخدم");
+                                const userInitial = (userName.trim()[0] || "U").toUpperCase();
+                                const userHandle = String(userObj.username || (userObj.email ? userObj.email.split("@")[0] : "user"));
+
                                 return (
                                 <TableRow key={ticket.id} className={`hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors ${isAppeal ? "bg-rose-50/30 dark:bg-rose-950/10" : ""}`}>
                                     <TableCell className="font-medium text-xs text-zinc-400">#{ticket.id}</TableCell>
@@ -226,29 +296,29 @@ export default function AdminTicketsPage() {
                                                     🛑 اعتراض حظر
                                                 </span>
                                             )}
-                                            <span className="line-clamp-1">{ticket.subject}</span>
+                                            <span className="line-clamp-1">{ticket.subject || "—"}</span>
                                         </div>
                                     </TableCell>
                                     <TableCell>
                                         <div className="flex items-center gap-2">
-                                            <div className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-950/30 flex items-center justify-center text-[10px] font-bold text-blue-600 dark:text-blue-400">
-                                                {ticket.user.fullName[0].toUpperCase()}
+                                            <div className="w-6 h-6 rounded-full bg-cyan-100 dark:bg-cyan-950/30 flex items-center justify-center text-[10px] font-bold text-[#00bcd4]">
+                                                {userInitial}
                                             </div>
                                             <div className="flex flex-col">
                                                 <span className="text-sm font-medium text-zinc-900 dark:text-white flex items-center gap-1">
-                                                    {ticket.user.fullName}
-                                                    {ticket.user.isBanned && (
+                                                    {userName}
+                                                    {userObj.isBanned && (
                                                         <span className="text-[10px] font-bold text-rose-600 bg-rose-100 dark:bg-rose-950 dark:text-rose-400 px-1.5 py-0.2 rounded">محظور</span>
                                                     )}
                                                 </span>
-                                                <span className="text-[10px] text-zinc-500 dark:text-zinc-400">@{ticket.user.username}</span>
+                                                <span className="text-[10px] text-zinc-500 dark:text-zinc-400">@{userHandle}</span>
                                             </div>
                                         </div>
                                     </TableCell>
                                     <TableCell>{getStatusBadge(ticket.status)}</TableCell>
                                     <TableCell>{getPriorityBadge(ticket.priority)}</TableCell>
                                     <TableCell className="text-xs text-zinc-500 dark:text-zinc-400">
-                                        {ticket.createdAt ? new Date(ticket.createdAt).toLocaleDateString() : '-'}
+                                        {ticket.createdAt ? new Date(ticket.createdAt).toLocaleDateString("ar-MA") : '-'}
                                     </TableCell>
                                     <TableCell className="text-right">
                                         <Link href={`/k-admin-portal-secure/tickets/${ticket.id}`}>
@@ -279,6 +349,10 @@ export default function AdminTicketsPage() {
                     ) : (
                         filteredTickets?.map((ticket) => {
                             const isAppeal = isBanAppeal(ticket);
+                            const userObj = ticket?.user || ({} as any);
+                            const userName = String(userObj.fullName || userObj.full_name || userObj.username || t("unnamedUser") || "مستخدم");
+                            const userInitial = (userName.trim()[0] || "U").toUpperCase();
+
                             return (
                             <div key={ticket.id} className={`bg-white dark:bg-zinc-900 border transition-all p-5 ${isAppeal ? "border-rose-300 dark:border-rose-900 bg-rose-50/20" : "border-zinc-100 dark:border-zinc-800/80"} shadow-[0_10px_30px_rgba(0,0,0,0.03)] hover:scale-[1.01]`} style={{ borderRadius: "28px" }}>
                                 <div className="flex justify-between items-start mb-3">
@@ -292,14 +366,14 @@ export default function AdminTicketsPage() {
                                     </div>
                                     {getStatusBadge(ticket.status)}
                                 </div>
-                                <h3 className="font-bold text-base mb-1 line-clamp-1 text-zinc-900 dark:text-white">{ticket.subject}</h3>
+                                <h3 className="font-bold text-base mb-1 line-clamp-1 text-zinc-900 dark:text-white">{ticket.subject || "—"}</h3>
                                 <div className="flex items-center gap-2 mb-4">
-                                    <div className="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-950/30 flex items-center justify-center text-[9px] font-bold text-blue-600 dark:text-blue-400">
-                                        {ticket.user.fullName[0].toUpperCase()}
+                                    <div className="w-5 h-5 rounded-full bg-cyan-100 dark:bg-cyan-950/30 flex items-center justify-center text-[9px] font-bold text-[#00bcd4]">
+                                        {userInitial}
                                     </div>
                                     <span className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">
-                                        {ticket.user.fullName}
-                                        {ticket.user.isBanned && <span className="text-[10px] text-rose-600 font-bold ml-1">(محظور)</span>}
+                                        {userName}
+                                        {userObj.isBanned && <span className="text-[10px] text-rose-600 font-bold ml-1">(محظور)</span>}
                                     </span>
                                 </div>
                                 <div className="flex items-center justify-between pt-3 border-t border-zinc-100 dark:border-zinc-800">
@@ -307,7 +381,7 @@ export default function AdminTicketsPage() {
                                     <Link href={`/k-admin-portal-secure/tickets/${ticket.id}`}>
                                         <Button
                                             size="sm"
-                                            className="bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 font-bold px-4 h-9 shadow-sm text-xs gap-1.5"
+                                            className="bg-white dark:bg-zinc-900 border border-[#00bcd4]/40 text-[#00bcd4] shadow-sm font-bold px-4 h-9 text-xs gap-1.5 hover:border-[#00bcd4]"
                                             style={{ borderRadius: "12px" }}
                                         >
                                             <Eye className="w-3.5 h-3.5" />

@@ -56,96 +56,220 @@ export default function AdminDashboard() {
   const { toast } = useToast();
   const qc = useQueryClient();
 
+  const fetchCombinedUsers = async () => {
+    const usersMap = new Map<string, any>();
+
+    // 1. Query Supabase DB users table (Primary source)
+    try {
+      const { data: usersList } = await supabase.from("users").select("*").order("created_at", { ascending: false });
+      if (Array.isArray(usersList)) {
+        usersList.forEach((u: any) => {
+          const formatted = {
+            id: u.id,
+            fullName: u.full_name || u.fullName || u.name || u.email || "مستخدم",
+            username: u.username || u.email?.split("@")[0] || "user",
+            email: u.email || "",
+            phone: u.phone || "",
+            role: u.role || "client",
+            status: u.status || "active",
+            avatar: u.profile_image || u.avatar || u.avatar_url || "",
+            city: u.city || "",
+            createdAt: u.created_at || u.createdAt || new Date().toISOString(),
+            isBanned: Boolean(u.is_banned || u.isBanned),
+          };
+          const key = formatted.email || String(formatted.id) || formatted.username;
+          if (key) {
+            usersMap.set(String(key).toLowerCase(), formatted);
+          }
+        });
+      }
+    } catch (e) {}
+
+    // 2. Current Supabase Auth session
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const u = session.user;
+        const meta = u.user_metadata || {};
+        const email = u.email || meta.email || "";
+        const key = email || u.id;
+        if (key && !usersMap.has(String(key).toLowerCase())) {
+          const formatted = {
+            id: u.id,
+            fullName: meta.full_name || meta.fullName || meta.name || email || "مستخدم",
+            username: meta.username || email?.split("@")[0] || "user",
+            email: email,
+            phone: meta.phone || u.phone || "",
+            role: meta.role || "client",
+            status: meta.status || "active",
+            avatar: meta.avatar_url || meta.picture || "",
+            city: meta.city || "",
+            createdAt: u.created_at || new Date().toISOString(),
+            isBanned: Boolean(meta.is_banned),
+          };
+          usersMap.set(String(key).toLowerCase(), formatted);
+        }
+      }
+    } catch (e) {}
+
+    // 3. LocalStorage registered users list
+    try {
+      const listRaw = localStorage.getItem("khidmati_registered_users");
+      if (listRaw) {
+        const list = JSON.parse(listRaw);
+        if (Array.isArray(list)) {
+          list.forEach((u: any) => {
+            const key = u.email || u.id || u.username;
+            if (key && !usersMap.has(String(key).toLowerCase())) {
+              usersMap.set(String(key).toLowerCase(), u);
+            }
+          });
+        }
+      }
+    } catch (e) {}
+
+    // 4. Try Express API
+    try {
+      const res = await fetch("/api/admin/users", { credentials: "include" });
+      const contentType = res.headers.get("content-type") || "";
+      if (res.ok && contentType.includes("application/json")) {
+        const json = await res.json();
+        if (Array.isArray(json)) {
+          json.forEach((u: any) => {
+            const key = u.email || u.id || u.username;
+            if (key && !usersMap.has(String(key).toLowerCase())) {
+              usersMap.set(String(key).toLowerCase(), u);
+            }
+          });
+        }
+      }
+    } catch (e) {}
+
+    // 4b. Express API: Supabase Auth users (users who registered via Google but have no DB row)
+    try {
+      const res = await fetch("/api/admin/auth-users", { credentials: "include" });
+      const contentType = res.headers.get("content-type") || "";
+      if (res.ok && contentType.includes("application/json")) {
+        const json = await res.json();
+        if (Array.isArray(json)) {
+          json.forEach((u: any) => {
+            const formatted = {
+              id: u.id,
+              fullName: u.fullName || u.email || "مستخدم",
+              username: u.username || u.email?.split("@")[0] || "user",
+              email: u.email || "",
+              phone: u.phone || "",
+              role: u.role || "client",
+              status: u.status || "active",
+              avatar: u.avatar || "",
+              city: u.city || "",
+              createdAt: u.createdAt || new Date().toISOString(),
+              isBanned: Boolean(u.isBanned),
+              source: "supabase-auth",
+            };
+            const key = formatted.email || formatted.id || formatted.username;
+            if (key && !usersMap.has(String(key).toLowerCase())) {
+              usersMap.set(String(key).toLowerCase(), formatted);
+            }
+          });
+        }
+      }
+    } catch (e) {}
+
+    // 5. Scan LocalStorage for Supabase Auth Tokens and Profiles
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.includes("auth-token") || key.includes("khidmati_user") || key === "user")) {
+          try {
+            const val = localStorage.getItem(key);
+            if (val) {
+              const parsed = JSON.parse(val);
+              const userObj = parsed.user || parsed;
+              if (userObj && (userObj.email || userObj.user_metadata)) {
+                const meta = userObj.user_metadata || {};
+                const email = userObj.email || meta.email || "";
+                const formatted = {
+                  id: userObj.id || Date.now(),
+                  fullName: meta.full_name || meta.name || userObj.fullName || userObj.full_name || email || "مستخدم",
+                  username: meta.username || userObj.username || email?.split("@")[0] || "user",
+                  email: email,
+                  phone: meta.phone || userObj.phone || "",
+                  role: meta.role || userObj.role || "client",
+                  status: meta.status || userObj.status || "active",
+                  avatar: meta.avatar_url || meta.picture || userObj.avatar || "",
+                  city: meta.city || userObj.city || "",
+                  createdAt: userObj.created_at || userObj.createdAt || new Date().toISOString(),
+                  isBanned: Boolean(meta.is_banned || userObj.isBanned),
+                };
+                const mapKey = formatted.email || formatted.id || formatted.username;
+                if (mapKey && !usersMap.has(String(mapKey).toLowerCase())) {
+                  usersMap.set(String(mapKey).toLowerCase(), formatted);
+                }
+              }
+            }
+          } catch (err) {}
+        }
+      }
+    } catch (e) {}
+
+    return Array.from(usersMap.values());
+  };
+
   const { data: stats } = useQuery<any>({ 
     queryKey: ["/api/admin/stats"],
     queryFn: async () => {
+      let uArr = await fetchCombinedUsers();
+      let bArr: any[] = [];
+      let vArr: any[] = [];
+
+      // Recent bookings (prefer backend, fallback to Supabase)
+      try {
+        const res = await fetch("/api/admin/bookings", { credentials: "include" });
+        const contentType = res.headers.get("content-type") || "";
+        if (res.ok && contentType.includes("application/json")) {
+          const json = await res.json();
+          if (Array.isArray(json) && json.length > 0) bArr = json;
+        }
+      } catch (e) {}
+
+      try {
+        const { data: statsRes } = await supabase.from("bookings").select("*");
+        const { data: verificationsList } = await supabase.from("verification_requests").select("*");
+        if (Array.isArray(statsRes) && bArr.length === 0) bArr = statsRes;
+        if (Array.isArray(verificationsList)) vArr = verificationsList;
+      } catch (err) {}
+
+      let apiStats: any = null;
       try {
         const res = await fetch("/api/admin/stats", { credentials: "include" });
         const contentType = res.headers.get("content-type") || "";
         if (res.ok && contentType.includes("application/json")) {
-          const json = await res.json();
-          if (json && typeof json.totalUsers === "number" && json.totalUsers > 0) return json;
+          apiStats = await res.json();
         }
       } catch (e) {}
 
-      // Fallback: Query Supabase tables directly or construct from Supabase Auth
-      try {
-        const { data: usersList } = await supabase.from("users").select("*");
-        const { data: bookingsList } = await supabase.from("bookings").select("*");
-        const { data: verificationsList } = await supabase.from("verification_requests").select("*");
+      const totalUsers = Math.max(apiStats?.totalUsers || 0, uArr.length);
+      const totalProviders = Math.max(apiStats?.totalProviders || 0, uArr.filter((u: any) => u.role === "provider").length);
+      const totalBookings = Math.max(apiStats?.totalBookings || 0, bArr.length);
+      const pendingVerifications = Math.max(apiStats?.pendingVerifications || 0, vArr.filter((v: any) => v.status === "pending").length);
+      const totalRevenue = apiStats?.totalRevenue || bArr.reduce((acc: number, b: any) => acc + (b.price || 0), 0);
 
-        let uArr: any[] = usersList || [];
-        let bArr: any[] = bookingsList || [];
-        let vArr: any[] = verificationsList || [];
-
-        if (uArr.length === 0) {
-          try {
-            const saved = localStorage.getItem("khidmati_user_profile");
-            if (saved) {
-              const parsed = JSON.parse(saved);
-              if (parsed && parsed.email) uArr.push(parsed);
-            }
-          } catch (e) {}
-        }
-
-        const totalUsers = Math.max(uArr.length, 1);
-        const totalProviders = uArr.filter((u: any) => u.role === "provider").length;
-        const totalBookings = bArr.length;
-        const pendingVerifications = vArr.filter((v: any) => v.status === "pending").length;
-        const totalRevenue = bArr.reduce((acc: number, b: any) => acc + (b.price || 0), 0);
-
-        return {
-          totalUsers,
-          totalProviders,
-          totalBookings,
-          pendingVerifications,
-          totalRevenue,
-          recentUsers: uArr.slice(0, 10),
-          recentBookings: bArr.slice(0, 10),
-        };
-      } catch (err) {
-        return {
-          totalUsers: 1,
-          totalProviders: 0,
-          totalBookings: 0,
-          pendingVerifications: 0,
-          totalRevenue: 0,
-          recentUsers: [],
-          recentBookings: [],
-        };
-      }
+      return {
+        totalUsers,
+        totalProviders,
+        totalBookings,
+        pendingVerifications,
+        totalRevenue,
+        recentUsers: uArr.slice(0, 10),
+        recentBookings: bArr.slice(0, 10),
+      };
     }
   });
 
   const { data: usersData, isLoading: usersLoading } = useQuery<any[]>({
     queryKey: ["/api/admin/users"],
-    queryFn: async () => {
-      try {
-        const res = await fetch("/api/admin/users", { credentials: "include" });
-        const contentType = res.headers.get("content-type") || "";
-        if (res.ok && contentType.includes("application/json")) {
-          const json = await res.json();
-          if (Array.isArray(json) && json.length > 0) return json;
-        }
-      } catch (e) {}
-
-      // Fallback: Query Supabase users table
-      try {
-        const { data: usersList } = await supabase.from("users").select("*").order("created_at", { ascending: false });
-        if (Array.isArray(usersList) && usersList.length > 0) return usersList;
-      } catch (e) {}
-
-      // Local user fallback
-      const list: any[] = [];
-      try {
-        const saved = localStorage.getItem("khidmati_user_profile");
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (parsed && parsed.email) list.push({ ...parsed, id: parsed.id || 1 });
-        }
-      } catch (e) {}
-      return list;
-    }
+    queryFn: fetchCombinedUsers,
   });
 
   const { data: bookingsData, isLoading: bookingsLoading } = useQuery<any[]>({
@@ -270,12 +394,12 @@ export default function AdminDashboard() {
   });
 
   const statCards = [
-    { label: t("totalUsersLabel"), value: stats?.totalUsers ?? 0, icon: Users, color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-950/30" },
-    { label: t("providersLabel"), value: stats?.totalProviders ?? 0, icon: Wrench, color: "text-purple-600", bg: "bg-purple-50 dark:bg-purple-950/30" },
-    { label: t("totalBookingsLabel"), value: stats?.totalBookings ?? 0, icon: Calendar, color: "text-indigo-600", bg: "bg-indigo-50 dark:bg-indigo-950/30" },
-    { label: t("verificationLabel"), value: stats?.pendingVerifications ?? 0, icon: Shield, color: "text-amber-600", bg: "bg-amber-50 dark:bg-amber-950/30" },
-    { label: t("revenueLabel"), value: stats ? `${stats.totalRevenue} DH` : "0 DH", icon: DollarSign, color: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-950/30" },
-    { label: t("activeBookingsLabel"), value: stats?.recentBookings?.filter((b: any) => b.status === "confirmed" || b.status === "pending").length ?? 0, icon: Activity, color: "text-rose-600", bg: "bg-rose-50 dark:bg-rose-950/30" },
+    { label: t("totalUsersLabel"), value: stats?.totalUsers ?? 0, icon: Users, color: "text-[#00bcd4]", bg: "bg-white dark:bg-zinc-900 border border-[#00bcd4]/40 text-[#00bcd4] shadow-[0_4px_14px_rgba(0,188,212,0.12)]" },
+    { label: t("providersLabel"), value: stats?.totalProviders ?? 0, icon: Wrench, color: "text-[#00bcd4]", bg: "bg-white dark:bg-zinc-900 border border-[#00bcd4]/40 text-[#00bcd4] shadow-[0_4px_14px_rgba(0,188,212,0.12)]" },
+    { label: t("totalBookingsLabel"), value: stats?.totalBookings ?? 0, icon: Calendar, color: "text-[#00bcd4]", bg: "bg-white dark:bg-zinc-900 border border-[#00bcd4]/40 text-[#00bcd4] shadow-[0_4px_14px_rgba(0,188,212,0.12)]" },
+    { label: t("verificationLabel"), value: stats?.pendingVerifications ?? 0, icon: Shield, color: "text-[#00bcd4]", bg: "bg-white dark:bg-zinc-900 border border-[#00bcd4]/40 text-[#00bcd4] shadow-[0_4px_14px_rgba(0,188,212,0.12)]" },
+    { label: t("revenueLabel"), value: stats ? `${stats.totalRevenue} DH` : "0 DH", icon: DollarSign, color: "text-[#00bcd4]", bg: "bg-white dark:bg-zinc-900 border border-[#00bcd4]/40 text-[#00bcd4] shadow-[0_4px_14px_rgba(0,188,212,0.12)]" },
+    { label: t("activeBookingsLabel"), value: stats?.recentBookings?.filter((b: any) => b.status === "confirmed" || b.status === "pending").length ?? 0, icon: Activity, color: "text-[#00bcd4]", bg: "bg-white dark:bg-zinc-900 border border-[#00bcd4]/40 text-[#00bcd4] shadow-[0_4px_14px_rgba(0,188,212,0.12)]" },
   ];
 
   return (
@@ -284,8 +408,8 @@ export default function AdminDashboard() {
 
         {/* Header */}
         <div className="flex items-center gap-3 md:gap-4 mb-2">
-          <div className="bg-blue-50 dark:bg-blue-950/40 rounded-2xl p-3 md:p-4 shrink-0">
-            <Shield className="w-6 h-6 md:w-8 md:h-8 text-blue-600 dark:text-blue-400" />
+          <div className="bg-white dark:bg-zinc-900 border border-[#00bcd4]/40 text-[#00bcd4] shadow-[0_4px_14px_rgba(0,188,212,0.12)] rounded-2xl p-3 md:p-4 shrink-0">
+            <Shield className="w-6 h-6 md:w-8 md:h-8" />
           </div>
           <h1 className="text-2xl md:text-4xl font-black text-zinc-900 dark:text-white tracking-tight">{t("adminDashboard")}</h1>
         </div>
@@ -311,16 +435,16 @@ export default function AdminDashboard() {
         {tab === "stats" && (
           <div className="space-y-6 md:space-y-8 animate-in">
             <div className="flex items-center gap-3">
-              <div className="bg-blue-50 dark:bg-blue-950/40 rounded-2xl p-2.5 md:p-3 shrink-0">
-                <Activity className="w-5 h-5 md:w-6 md:h-6 text-blue-600 dark:text-blue-400" />
+              <div className="bg-white dark:bg-zinc-900 border border-[#00bcd4]/40 text-[#00bcd4] shadow-[0_4px_14px_rgba(0,188,212,0.12)] rounded-2xl p-2.5 md:p-3 shrink-0">
+                <Activity className="w-5 h-5 md:w-6 md:h-6" />
               </div>
               <h2 className="text-2xl md:text-4xl font-black text-zinc-900 dark:text-white">{t("overviewLabel")}</h2>
             </div>
             <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
               {statCards.map((s) => (
-                <div key={s.label} className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800/80 shadow-[0_10px_30px_rgba(0,0,0,0.03)] p-3.5 sm:p-5 rounded-2xl sm:rounded-[28px]">
+                <div key={s.label} className="group bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800/80 hover:border-zinc-300 dark:hover:border-zinc-700 shadow-[0_10px_30px_rgba(0,0,0,0.03)] p-3.5 sm:p-5 rounded-2xl sm:rounded-[28px] transition-all duration-200">
                   <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2.5 sm:gap-4">
-                    <div className={`p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl ${s.bg} shrink-0`}>
+                    <div className={`p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl ${s.bg} shrink-0 transition-transform duration-200 group-hover:scale-105`}>
                       <s.icon className={`w-5 h-5 sm:w-7 sm:h-7 ${s.color}`} />
                     </div>
                     <div className="min-w-0">
@@ -338,17 +462,34 @@ export default function AdminDashboard() {
                 {stats?.recentUsers?.length ? (
                   <div className="space-y-3">
                     {stats.recentUsers.slice(0, 5).map((u: any) => (
-                      <div key={u.id} className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-2 last:border-0">
+                      <div key={u.id || u.email || Math.random()} className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-3 last:border-0 pt-1">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-sm font-bold text-zinc-900 dark:text-white">
-                            {u.fullName?.[0] || "?"}
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-zinc-900 dark:text-white">{u.fullName}</p>
-                            <p className="text-xs text-zinc-500 dark:text-zinc-400">{u.email || u.username}</p>
+                          {u.avatarUrl || u.avatar ? (
+                            <img src={u.avatarUrl || u.avatar} alt={u.fullName || "User"} className="w-10 h-10 rounded-full object-cover border border-zinc-200 dark:border-zinc-700" />
+                          ) : (
+                            <div className="w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border border-zinc-200/80 dark:border-zinc-700/80 flex items-center justify-center text-base font-bold shrink-0">
+                              {u.fullName?.[0]?.toUpperCase() || u.username?.[0]?.toUpperCase() || "U"}
+                            </div>
+                          )}
+                          <div className="flex flex-col min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-bold text-zinc-900 dark:text-white truncate">{u.fullName || t("unnamedUser")}</p>
+                              {u.username && <span className="text-xs text-zinc-400 font-mono">@{u.username}</span>}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                              {u.email && <span>{u.email}</span>}
+                              {u.phone && <span>• {u.phone}</span>}
+                            </div>
                           </div>
                         </div>
-                        <Chip size="sm" variant="flat">{u.role}</Chip>
+                        <Chip
+                          size="sm"
+                          color={u.role === "admin" ? "primary" : u.role === "provider" ? "secondary" : "default"}
+                          variant="flat"
+                          className="shrink-0 font-semibold"
+                        >
+                          {u.role === "admin" ? t("adminRoleBadge") : u.role === "provider" ? t("providerRoleBadge") : t("clientRoleBadge")}
+                        </Chip>
                       </div>
                     ))}
                   </div>
@@ -382,8 +523,8 @@ export default function AdminDashboard() {
         {tab === "users" && (
           <div className="space-y-6">
             <div className="flex items-center gap-3">
-              <div className="bg-purple-50 dark:bg-purple-950/40 rounded-2xl p-3">
-                <Users className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+              <div className="bg-white dark:bg-zinc-900 border border-[#00bcd4]/40 text-[#00bcd4] shadow-[0_4px_14px_rgba(0,188,212,0.12)] rounded-2xl p-3 shrink-0">
+                <Users className="w-6 h-6" />
               </div>
               <h2 className="text-3xl md:text-4xl font-black text-zinc-900 dark:text-white">{t("usersManagementLabel")}</h2>
             </div>
@@ -522,8 +663,8 @@ export default function AdminDashboard() {
         {tab === "bookings" && (
           <div className="space-y-6">
             <div className="flex items-center gap-3">
-              <div className="bg-indigo-50 dark:bg-indigo-950/40 rounded-2xl p-3">
-                <Calendar className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+              <div className="bg-white dark:bg-zinc-900 border border-[#00bcd4]/40 text-[#00bcd4] shadow-[0_4px_14px_rgba(0,188,212,0.12)] rounded-2xl p-3 shrink-0">
+                <Calendar className="w-6 h-6" />
               </div>
               <h2 className="text-3xl md:text-4xl font-black text-zinc-900 dark:text-white">{t("bookingManagementLabel")}</h2>
             </div>
@@ -589,8 +730,8 @@ export default function AdminDashboard() {
         {tab === "verifications" && (
           <div className="space-y-6">
             <div className="flex items-center gap-3">
-              <div className="bg-amber-50 dark:bg-amber-950/40 rounded-2xl p-3">
-                <Shield className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+              <div className="bg-white dark:bg-zinc-900 border border-[#00bcd4]/40 text-[#00bcd4] shadow-[0_4px_14px_rgba(0,188,212,0.12)] rounded-2xl p-3 shrink-0">
+                <Shield className="w-6 h-6" />
               </div>
               <h2 className="text-3xl md:text-4xl font-black text-zinc-900 dark:text-white">{t("verificationRequests")}</h2>
             </div>
@@ -667,13 +808,13 @@ export default function AdminDashboard() {
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="bg-emerald-50 dark:bg-emerald-950/40 rounded-2xl p-3">
-                  <DollarSign className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+                <div className="bg-white dark:bg-zinc-900 border border-[#00bcd4]/40 text-[#00bcd4] shadow-[0_4px_14px_rgba(0,188,212,0.12)] rounded-2xl p-3 shrink-0">
+                  <DollarSign className="w-6 h-6" />
                 </div>
                 <h2 className="text-3xl md:text-4xl font-black text-zinc-900 dark:text-white">{t("revenueLabel2")}</h2>
               </div>
-              <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/50 px-5 py-3 rounded-2xl">
-                <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
+              <div className="bg-white dark:bg-zinc-900 border border-[#00bcd4]/40 text-[#00bcd4] shadow-[0_4px_14px_rgba(0,188,212,0.12)] px-5 py-3 rounded-2xl">
+                <span className="text-lg font-bold text-[#00838f] dark:text-[#00bcd4]">
                   {t("totalLabel")} {revenueData?.payments?.reduce((s: number, p: any) => s + (p.amount || 0), 0) || 0} DH
                 </span>
               </div>
@@ -720,8 +861,8 @@ export default function AdminDashboard() {
         {tab === "invoices" && (
           <div className="space-y-6">
             <div className="flex items-center gap-3">
-              <div className="bg-blue-50 dark:bg-blue-950/40 rounded-2xl p-3">
-                <FileText className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+              <div className="bg-white dark:bg-zinc-900 border border-[#00bcd4]/40 text-[#00bcd4] shadow-[0_4px_14px_rgba(0,188,212,0.12)] rounded-2xl p-3 shrink-0">
+                <FileText className="w-6 h-6" />
               </div>
               <h2 className="text-3xl md:text-4xl font-black text-zinc-900 dark:text-white">{t("invoicesLabel")}</h2>
             </div>
@@ -756,13 +897,13 @@ export default function AdminDashboard() {
                         <TableCell className="font-medium text-zinc-900 dark:text-white">{inv.clientName}</TableCell>
                         <TableCell className="text-zinc-700 dark:text-zinc-300">{inv.providerName}</TableCell>
                         <TableCell className="text-zinc-600 dark:text-zinc-400">{inv.serviceType}</TableCell>
-                        <TableCell className="font-medium text-blue-600 dark:text-blue-400" dir="ltr">{inv.agreedPrice} DH</TableCell>
+                        <TableCell className="font-medium text-zinc-900 dark:text-white" dir="ltr">{inv.agreedPrice} DH</TableCell>
                         <TableCell><StatusBadge status={inv.status} t={t} /></TableCell>
                         <TableCell className="text-sm text-zinc-600 dark:text-zinc-400">{inv.createdAt ? new Date(inv.createdAt).toLocaleDateString("ar-MA") : "-"}</TableCell>
                         <TableCell>
                           {inv.status === "completed" ? (
                             <Link href={`/invoice/${inv.id}/print`} target="_blank">
-                              <Button isIconOnly variant="light" size="sm" color="primary" title={t("viewInvoiceBtn")}>
+                              <Button isIconOnly variant="light" size="sm" className="text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white" title={t("viewInvoiceBtn")}>
                                 <FileText className="h-4 w-4" />
                               </Button>
                             </Link>

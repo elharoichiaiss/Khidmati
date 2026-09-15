@@ -7,6 +7,7 @@ import { Button, Input, Textarea, Select, SelectItem } from "@heroui/react";
 import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
 import { Loader2, ArrowRight, ArrowLeft, Check, X, User, Phone, MapPin, Briefcase, MessageSquare, Star, MessageCircle, Eye, EyeOff, Mail, AtSign, Lock } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { supabase } from "@/lib/supabase";
 import { MOROCCAN_CITIES } from "@shared/constants";
 import { useLanguage } from "@/hooks/use-language";
 
@@ -330,10 +331,23 @@ export function ProviderRegisterWizard({ onSuccess, lang = "ar", completeMode = 
       try {
         const current = completeMode ? user?.username || "" : "";
         const res = await fetch(`/api/check-username?username=${encodeURIComponent(val)}${current ? `&current=${encodeURIComponent(current)}` : ""}`);
-        const data = await res.json();
-        setUsernameStatus(data.available ? "available" : "taken");
+        const contentType = res.headers.get("content-type") || "";
+        if (res.ok && contentType.includes("application/json")) {
+          const data = await res.json();
+          setUsernameStatus(data.available ? "available" : "taken");
+          return;
+        }
+      } catch {}
+
+      try {
+        const { data: existing } = await supabase.from("users").select("id").eq("username", val).maybeSingle();
+        if (existing) {
+          setUsernameStatus("taken");
+        } else {
+          setUsernameStatus("available");
+        }
       } catch {
-        setUsernameStatus("idle");
+        setUsernameStatus("available");
       }
     }, 500);
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };

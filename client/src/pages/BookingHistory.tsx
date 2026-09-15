@@ -11,6 +11,7 @@ import { Button, Input, Chip, Skeleton, Avatar } from "@heroui/react";
 import { useLocation } from "wouter";
 import { useState, useEffect, useMemo } from "react";
 import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/lib/supabase";
 
 type BookingRow = {
   booking: Booking;
@@ -84,18 +85,90 @@ export default function BookingHistory() {
   const { data: bookings, isLoading } = useQuery<BookingRow[]>({
     queryKey: ["/api/my-bookings"],
     enabled: !!user,
+    queryFn: async (): Promise<BookingRow[]> => {
+      try {
+        const res = await fetch("/api/my-bookings", { credentials: "include" });
+        const contentType = res.headers.get("content-type") || "";
+        if (res.ok && contentType.includes("application/json")) {
+          const data = await res.json();
+          if (Array.isArray(data)) return data;
+        }
+      } catch (e) {}
+
+      try {
+        const targetStr = String(user?.id || user?.email || "");
+        let numericDbId: number | null = /^\d+$/.test(targetStr) ? Number(targetStr) : null;
+        if (!numericDbId) {
+          const { data: found } = await supabase.from("users").select("id").or(`email.eq.${user?.email},google_id.eq.${user?.id}`).maybeSingle();
+          if (found?.id) numericDbId = found.id;
+        }
+
+        if (numericDbId) {
+          const { data: dbBookings } = await supabase.from("bookings").select("*").eq("client_id", numericDbId).order("created_at", { ascending: false });
+          if (Array.isArray(dbBookings)) {
+            const providerIds = Array.from(new Set(dbBookings.map((b: any) => b.provider_id)));
+            const { data: dbProviders } = await supabase.from("users").select("*").in("id", providerIds.length > 0 ? providerIds : [0]);
+            const providersMap = new Map((dbProviders || []).map((p: any) => [p.id, p]));
+
+            return dbBookings.map((b: any) => {
+              const prov: any = providersMap.get(b.provider_id) || {};
+              return {
+                booking: {
+                  id: b.id,
+                  clientId: b.client_id,
+                  providerId: b.provider_id,
+                  date: b.date || b.created_at,
+                  status: b.status || "pending",
+                  price: b.price || 0,
+                  description: b.description || "",
+                  createdAt: b.created_at
+                },
+                provider: {
+                  id: prov.id || b.provider_id,
+                  fullName: prov.full_name || prov.fullName || prov.email || "حرفي",
+                  username: prov.username || "provider",
+                  email: prov.email || null,
+                  phone: prov.phone || null,
+                  city: prov.city || "الدار البيضاء",
+                  profileImage: prov.profile_image || prov.avatar || null,
+                  role: "provider",
+                  status: "active",
+                  isBanned: false,
+                  isVerified: true
+                } as any,
+                profile: null
+              };
+            });
+          }
+        }
+      } catch (e) {}
+
+      return [];
+    }
   });
 
   const cancelMutation = useMutation({
     mutationFn: async (bookingId: number) => {
-      const res = await fetch(`/api/bookings/${bookingId}/status`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "rejected" }),
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed to cancel");
-      return res.json();
+      try {
+        const res = await fetch(`/api/bookings/${bookingId}/status`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "rejected" }),
+          credentials: "include",
+        });
+        const contentType = res.headers.get("content-type") || "";
+        if (res.ok && contentType.includes("application/json")) {
+          return await res.json();
+        }
+      } catch (e) {}
+
+      try {
+        const { data: updated, error } = await supabase.from("bookings").update({ status: "rejected" }).eq("id", bookingId).select().single();
+        if (error) throw new Error(error.message);
+        return updated;
+      } catch (e: any) {
+        throw new Error(e?.message || "Failed to cancel booking");
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/my-bookings"] });
@@ -172,7 +245,7 @@ export default function BookingHistory() {
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
             <div className="flex items-center gap-3">
-              <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/40 rounded-2xl text-emerald-600 dark:text-emerald-400">
+              <div className="p-3.5 bg-white dark:bg-zinc-900 border border-[#00bcd4]/40 text-[#00bcd4] shadow-[0_4px_14px_rgba(0,188,212,0.12)] rounded-2xl">
                 <CalendarDays className="w-7 h-7" />
               </div>
               <h1 className="text-3xl md:text-4xl font-black text-zinc-900 dark:text-white">

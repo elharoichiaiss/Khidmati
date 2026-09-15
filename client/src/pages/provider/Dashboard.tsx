@@ -354,7 +354,7 @@ export default function ProviderDashboard() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div className="flex items-center gap-3">
-            <div className="p-3.5 bg-blue-50 dark:bg-blue-950/40 rounded-2xl text-blue-600 dark:text-blue-400">
+            <div className="p-3.5 bg-white dark:bg-zinc-900 border border-[#00bcd4]/40 text-[#00bcd4] shadow-[0_4px_14px_rgba(0,188,212,0.12)] rounded-2xl">
               <LayoutDashboard className="w-7 h-7" />
             </div>
             <h1 className="text-3xl md:text-4xl font-black text-zinc-900 dark:text-white">
@@ -422,7 +422,7 @@ export default function ProviderDashboard() {
           <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800/80 p-6 shadow-[0_10px_30px_rgba(0,0,0,0.03)] hover:scale-[1.02] transition-transform" style={{ borderRadius: "28px" }}>
             <div className="text-xs font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider flex items-center justify-between mb-1">
               {t("totalEarnings")}
-              <div className="p-2 bg-emerald-50 dark:bg-emerald-950/30 rounded-2xl text-emerald-600 dark:text-emerald-400">
+              <div className="p-2 bg-white dark:bg-zinc-900 border border-[#00bcd4]/40 text-[#00bcd4] shadow-[0_4px_12px_rgba(0,188,212,0.10)] rounded-2xl">
                 <DollarSign className="w-4 h-4" />
               </div>
             </div>
@@ -438,7 +438,7 @@ export default function ProviderDashboard() {
           <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800/80 p-6 shadow-[0_10px_30px_rgba(0,0,0,0.03)] hover:scale-[1.02] transition-transform" style={{ borderRadius: "28px" }}>
             <div className="text-xs font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider flex items-center justify-between mb-1">
               {t("totalBookings")}
-              <div className="p-2 bg-blue-50 dark:bg-blue-950/30 rounded-2xl text-blue-600 dark:text-blue-400">
+              <div className="p-2 bg-white dark:bg-zinc-900 border border-[#00bcd4]/40 text-[#00bcd4] shadow-[0_4px_12px_rgba(0,188,212,0.10)] rounded-2xl">
                 <CalendarCheck className="w-4 h-4" />
               </div>
             </div>
@@ -460,7 +460,7 @@ export default function ProviderDashboard() {
           >
             <div className="text-xs font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider flex items-center justify-between mb-1">
               {t("pendingRequests")}
-              <div className="p-2 bg-amber-50 dark:bg-amber-950/30 rounded-2xl text-amber-600 dark:text-amber-400">
+              <div className="p-2 bg-white dark:bg-zinc-900 border border-[#00bcd4]/40 text-[#00bcd4] shadow-[0_4px_12px_rgba(0,188,212,0.10)] rounded-2xl">
                 <Clock className="w-4 h-4" />
               </div>
             </div>
@@ -480,8 +480,8 @@ export default function ProviderDashboard() {
           <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800/80 p-6 shadow-[0_10px_30px_rgba(0,0,0,0.03)] hover:scale-[1.02] transition-transform" style={{ borderRadius: "28px" }}>
             <div className="text-xs font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wider flex items-center justify-between mb-1">
               {t("averageRating")}
-              <div className="p-2 bg-amber-50 dark:bg-amber-950/30 rounded-2xl text-amber-600 dark:text-amber-400">
-                <Star className="w-4 h-4 fill-amber-500" />
+              <div className="p-2 bg-white dark:bg-zinc-900 border border-[#00bcd4]/40 text-[#00bcd4] shadow-[0_4px_12px_rgba(0,188,212,0.10)] rounded-2xl">
+                <Star className="w-4 h-4 fill-current" />
               </div>
             </div>
             <div className="text-2xl font-bold text-zinc-900 dark:text-white flex items-center gap-1.5">

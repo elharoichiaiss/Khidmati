@@ -16,11 +16,12 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
         if (!isLoading) {
             if (!user) {
                 // Not logged in -> Redirect to auth
-                // For admin routes, we might want to redirect to admin login, but simpler to keep generic auth
                 setLocation("/login");
+            } else if (!user.city) {
+                // Profile incomplete -> Redirect to complete-profile
+                setLocation("/complete-profile");
             } else if (allowedRoles && !allowedRoles.includes(user.role)) {
-                // Logged in but wrong role -> Redirect to home or 403
-                // If trying to access admin and not admin, go to home
+                // Logged in but wrong role -> Redirect to home
                 setLocation("/");
             }
         }
@@ -37,10 +38,7 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
         );
     }
 
-    // If we have a user and (no roles check OR roles check passed), verify rendered content
-    // Note: The useEffect handles the redirect, but whilst redirecting we should render nothing or null
-    // to avoid flash of content.
-    if (!user || (allowedRoles && !allowedRoles.includes(user.role))) {
+    if (!user || !user.city || (allowedRoles && !allowedRoles.includes(user.role))) {
         return null;
     }
 

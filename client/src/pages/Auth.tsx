@@ -148,10 +148,15 @@ export default function AuthPage() {
 
   useEffect(() => {
     if (user) {
-      if (user.role === "provider") setLocation("/provider/dashboard");
-      else if (user.role === "admin") setLocation("/k-admin-portal-secure");
-      else if (!user.city) setLocation("/complete-profile");
-      else setLocation("/");
+      if (!user.city) {
+        setLocation("/complete-profile");
+      } else if (user.role === "admin") {
+        setLocation("/k-admin-portal-secure");
+      } else if (user.role === "provider") {
+        setLocation("/provider/dashboard");
+      } else {
+        setLocation("/");
+      }
     }
   }, [user, setLocation]);
 

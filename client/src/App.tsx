@@ -110,7 +110,7 @@ function Router() {
       setLocation("/k-admin-portal-secure");
     }
 
-    if (user && !user.city && location !== "/complete-profile" && location !== "/login" && location !== "/register" && location !== "/terms" && location !== "/privacy" && !location.startsWith("/k-admin")) {
+    if (user && !user.city && location !== "/complete-profile" && location !== "/terms" && location !== "/privacy" && !location.startsWith("/k-admin")) {
       setLocation("/complete-profile");
     }
   }, [location, setLocation, user]);
@@ -129,11 +129,7 @@ function Router() {
         <Route path="/register" component={AuthPage} />
         <Route path="/forgot-password" component={ForgotPassword} />
         <Route path="/reset-password" component={ResetPassword} />
-        <Route path="/complete-profile">
-          <ProtectedRoute>
-            <CompleteProfilePage />
-          </ProtectedRoute>
-        </Route>
+        <Route path="/complete-profile" component={CompleteProfilePage} />
         <Route path="/providers/:id" component={ProviderDetail} />
         <Route path="/messages" component={Messages} />
         <Route path="/invoice/:id/print" component={InvoicePrint} />

@@ -10,17 +10,17 @@ export default function AdminReportsPage() {
     };
 
     const reportItems = [
-        { type: "users", icon: Users, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-950/40", titleKey: "usersReport", descKey: "usersReportDesc" },
-        { type: "bookings", icon: CalendarRange, color: "text-indigo-600 dark:text-indigo-400", bg: "bg-indigo-50 dark:bg-indigo-950/40", titleKey: "bookingsReport", descKey: "bookingsReportDesc" },
-        { type: "tickets", icon: LifeBuoy, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-950/40", titleKey: "ticketsReport", descKey: "ticketsReportDesc" },
-        { type: "summary", icon: BarChart3, color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-950/40", titleKey: "summaryReport", descKey: "summaryReportDesc" },
+        { type: "users", icon: Users, color: "text-[#00bcd4]", bg: "bg-white dark:bg-zinc-900 border border-[#00bcd4]/40 text-[#00bcd4] shadow-[0_4px_14px_rgba(0,188,212,0.12)]", titleKey: "usersReport", descKey: "usersReportDesc" },
+        { type: "bookings", icon: CalendarRange, color: "text-[#00bcd4]", bg: "bg-white dark:bg-zinc-900 border border-[#00bcd4]/40 text-[#00bcd4] shadow-[0_4px_14px_rgba(0,188,212,0.12)]", titleKey: "bookingsReport", descKey: "bookingsReportDesc" },
+        { type: "tickets", icon: LifeBuoy, color: "text-[#00bcd4]", bg: "bg-white dark:bg-zinc-900 border border-[#00bcd4]/40 text-[#00bcd4] shadow-[0_4px_14px_rgba(0,188,212,0.12)]", titleKey: "ticketsReport", descKey: "ticketsReportDesc" },
+        { type: "summary", icon: BarChart3, color: "text-[#00bcd4]", bg: "bg-white dark:bg-zinc-900 border border-[#00bcd4]/40 text-[#00bcd4] shadow-[0_4px_14px_rgba(0,188,212,0.12)]", titleKey: "summaryReport", descKey: "summaryReportDesc" },
     ];
 
     return (
         <div className="bg-zinc-50 dark:bg-black min-h-screen py-10">
             <div className="container mx-auto px-4 max-w-5xl pb-24">
                 <div className="flex items-center gap-3 mb-8">
-                    <div className="p-3.5 bg-indigo-50 dark:bg-indigo-950/40 rounded-2xl text-indigo-600 dark:text-indigo-400">
+                    <div className="p-3.5 bg-white dark:bg-zinc-900 border border-[#00bcd4]/40 text-[#00bcd4] shadow-[0_4px_14px_rgba(0,188,212,0.12)] rounded-2xl">
                         <PieChart className="w-7 h-7" />
                     </div>
                     <h1 className="text-3xl md:text-4xl font-black text-zinc-900 dark:text-white">{t("reports")}</h1>

@@ -89,17 +89,78 @@ adminRouter.get("/me", (req: any, res) => {
 
 // --- Admin Data (Protected) ---
 
+async function fetchSupabaseAuthUsers(): Promise<any[]> {
+    const supabaseUrl = process.env.VITE_SUPABASE_URL;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!supabaseUrl || !serviceKey) return [];
+
+    const users: any[] = [];
+    const perPage = 200;
+    let page = 1;
+
+    while (true) {
+        const resp = await fetch(`${supabaseUrl}/auth/v1/admin/users?per_page=${perPage}&page=${page}`, {
+            headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` },
+        });
+        if (!resp.ok) {
+            console.error("Supabase auth users fetch error:", resp.status, await resp.text().catch(() => ""));
+            break;
+        }
+        const data: any = await resp.json();
+        const batch: any[] = data?.users || [];
+        users.push(...batch);
+        if (batch.length < perPage) break;
+        page++;
+        if (page > 50) break;
+    }
+    return users;
+}
+
+function formatSupabaseAuthUser(u: any) {
+    const meta = u.user_metadata || {};
+    return {
+        id: u.id,
+        username: meta.username || (u.email || "").split("@")[0] || "user",
+        fullName: meta.fullName || meta.full_name || meta.name || u.email || "مستخدم",
+        email: u.email || meta.email || null,
+        phone: meta.phone || "",
+        role: meta.role || "client",
+        status: meta.status || "active",
+        avatar: meta.avatar_url || meta.picture || "",
+        city: meta.city || "",
+        createdAt: u.created_at || new Date().toISOString(),
+        isBanned: Boolean(u.banned_until || meta.is_banned),
+        source: "supabase-auth",
+    };
+}
+
 adminRouter.get("/stats", isAuthenticatedAdmin, async (req, res) => {
     try {
         const users = await storage.getAllUsers();
+        let supabaseCount = 0;
+        try {
+            supabaseCount = (await fetchSupabaseAuthUsers()).length;
+        } catch (e) {
+            console.error("Admin stats supabase count error:", e);
+        }
         res.json({
-            totalUsers: users.length,
+            totalUsers: users.length + supabaseCount,
             activeProviders: users.filter(u => u.role === 'provider' && !u.isBanned).length,
             totalListings: users.filter(u => u.role === 'provider').length,
             bannedUsers: users.filter(u => u.isBanned).length
         });
     } catch (error) {
         console.error("Admin stats error:", error);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
+adminRouter.get("/auth-users", isAuthenticatedAdmin, async (req, res) => {
+    try {
+        const authUsers = await fetchSupabaseAuthUsers();
+        res.json(authUsers.map(formatSupabaseAuthUser));
+    } catch (error) {
+        console.error("Admin supabase auth users error:", error);
         res.status(500).json({ message: "Server error" });
     }
 });

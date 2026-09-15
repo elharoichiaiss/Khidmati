@@ -1,5 +1,5 @@
 import { Layout } from "@/components/Layout";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth, resolveCurrentNumericUserId } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Notification } from "@shared/schema";
@@ -8,6 +8,7 @@ import { Button, Skeleton } from "@heroui/react";
 import { useLocation } from "wouter";
 import { toast } from "@/hooks/use-toast";
 import { getNotifTarget } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
 
 export default function NotificationsPage() {
     const { user } = useAuth();
@@ -16,24 +17,65 @@ export default function NotificationsPage() {
     const queryClient = useQueryClient();
 
     const { data: notifications = [], isLoading } = useQuery<Notification[]>({
-        queryKey: ["/api/notifications"],
+        queryKey: ["/api/notifications", user?.id],
         enabled: !!user,
+        queryFn: async (): Promise<Notification[]> => {
+            try {
+                const res = await fetch("/api/notifications", { credentials: "include" });
+                const contentType = res.headers.get("content-type") || "";
+                if (res.ok && contentType.includes("application/json")) {
+                    const data = await res.json();
+                    if (Array.isArray(data)) return data;
+                }
+            } catch (e) {}
+
+            try {
+                const numericId = await resolveCurrentNumericUserId(user);
+                const { data: notifs } = await supabase
+                    .from("notifications")
+                    .select("*")
+                    .eq("user_id", numericId)
+                    .order("created_at", { ascending: false });
+
+                if (Array.isArray(notifs)) {
+                    return notifs.map((n: any) => ({
+                        id: n.id,
+                        userId: n.user_id,
+                        type: n.type,
+                        message: n.message,
+                        read: Boolean(n.read),
+                        link: n.link,
+                        createdAt: n.created_at,
+                    }));
+                }
+            } catch (e) {}
+            return [];
+        },
     });
 
     const markRead = useMutation({
         mutationFn: async (id: number) => {
-            const res = await fetch(`/api/notifications/${id}/read`, { method: "PATCH", credentials: "include" });
-            if (!res.ok) throw new Error("Failed");
-            return res.json();
+            try {
+                const res = await fetch(`/api/notifications/${id}/read`, { method: "PATCH", credentials: "include" });
+                if (res.ok) return await res.json();
+            } catch (e) {}
+
+            await supabase.from("notifications").update({ read: true }).eq("id", id);
+            return { success: true };
         },
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/notifications"] }),
     });
 
     const markAllRead = useMutation({
         mutationFn: async () => {
-            const res = await fetch("/api/notifications/read-all", { method: "PATCH", credentials: "include" });
-            if (!res.ok) throw new Error("Failed");
-            return res.json();
+            try {
+                const res = await fetch("/api/notifications/read-all", { method: "PATCH", credentials: "include" });
+                if (res.ok) return await res.json();
+            } catch (e) {}
+
+            const numericId = await resolveCurrentNumericUserId(user);
+            await supabase.from("notifications").update({ read: true }).eq("user_id", numericId);
+            return { success: true };
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
@@ -75,7 +117,7 @@ export default function NotificationsPage() {
                 <div className="container mx-auto px-4 max-w-5xl pb-24">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
                         <div className="flex items-center gap-3">
-                            <div className="p-3.5 bg-amber-50 dark:bg-amber-950/40 rounded-2xl text-amber-600 dark:text-amber-400">
+                            <div className="p-3.5 bg-white dark:bg-zinc-900 border border-[#00bcd4]/40 text-[#00bcd4] shadow-[0_4px_14px_rgba(0,188,212,0.12)] rounded-2xl">
                                 <Bell className="w-7 h-7" />
                             </div>
                             <div>

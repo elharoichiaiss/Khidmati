@@ -17,7 +17,7 @@ export default function AdminSettingsPage() {
         <div className="bg-zinc-50 dark:bg-black min-h-screen py-10">
             <div className="container mx-auto px-4 max-w-5xl pb-24">
                 <div className="flex items-center gap-3 mb-8">
-                    <div className="p-3.5 bg-zinc-900 dark:bg-white rounded-2xl text-white dark:text-zinc-900">
+                    <div className="p-3.5 bg-white dark:bg-zinc-900 border border-[#00bcd4]/40 text-[#00bcd4] shadow-[0_4px_14px_rgba(0,188,212,0.12)] rounded-2xl">
                         <Settings className="w-7 h-7" />
                     </div>
                     <h1 className="text-3xl md:text-4xl font-black text-zinc-900 dark:text-white">{t("settings")}</h1>
@@ -27,8 +27,8 @@ export default function AdminSettingsPage() {
                     {/* Admin Account Card */}
                     <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800/80 shadow-[0_10px_30px_rgba(0,0,0,0.03)] p-6" style={{ borderRadius: "28px" }}>
                         <div className="flex items-center gap-3 mb-4">
-                            <div className="p-2.5 bg-blue-50 dark:bg-blue-950/40 rounded-2xl">
-                                <Shield className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                            <div className="p-2.5 bg-white dark:bg-zinc-900 border border-[#00bcd4]/40 text-[#00bcd4] shadow-[0_4px_12px_rgba(0,188,212,0.10)] rounded-2xl">
+                                <Shield className="w-5 h-5" />
                             </div>
                             <div>
                                 <h3 className="font-bold text-zinc-900 dark:text-white">{t("adminAccount")}</h3>
@@ -50,8 +50,8 @@ export default function AdminSettingsPage() {
                     {/* Environment Card */}
                     <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800/80 shadow-[0_10px_30px_rgba(0,0,0,0.03)] p-6" style={{ borderRadius: "28px" }}>
                         <div className="flex items-center gap-3 mb-4">
-                            <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/40 rounded-2xl">
-                                <Server className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                            <div className="p-2.5 bg-white dark:bg-zinc-900 border border-[#00bcd4]/40 text-[#00bcd4] shadow-[0_4px_12px_rgba(0,188,212,0.10)] rounded-2xl">
+                                <Server className="w-5 h-5" />
                             </div>
                             <div>
                                 <h3 className="font-bold text-zinc-900 dark:text-white">{t("environment")}</h3>
@@ -79,8 +79,8 @@ export default function AdminSettingsPage() {
                     {/* Integrations Card */}
                     <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800/80 shadow-[0_10px_30px_rgba(0,0,0,0.03)] p-6" style={{ borderRadius: "28px" }}>
                         <div className="flex items-center gap-3 mb-4">
-                            <div className="p-2.5 bg-purple-50 dark:bg-purple-950/40 rounded-2xl">
-                                <Globe className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                            <div className="p-2.5 bg-white dark:bg-zinc-900 border border-[#00bcd4]/40 text-[#00bcd4] shadow-[0_4px_12px_rgba(0,188,212,0.10)] rounded-2xl">
+                                <Globe className="w-5 h-5" />
                             </div>
                             <div>
                                 <h3 className="font-bold text-zinc-900 dark:text-white">{t("integrations")}</h3>
@@ -122,8 +122,8 @@ export default function AdminSettingsPage() {
                     {/* Notifications Card */}
                     <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800/80 shadow-[0_10px_30px_rgba(0,0,0,0.03)] p-6" style={{ borderRadius: "28px" }}>
                         <div className="flex items-center gap-3 mb-4">
-                            <div className="p-2.5 bg-amber-50 dark:bg-amber-950/40 rounded-2xl">
-                                <Bell className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                            <div className="p-2.5 bg-white dark:bg-zinc-900 border border-[#00bcd4]/40 text-[#00bcd4] shadow-[0_4px_12px_rgba(0,188,212,0.10)] rounded-2xl">
+                                <Bell className="w-5 h-5" />
                             </div>
                             <div>
                                 <h3 className="font-bold text-zinc-900 dark:text-white">{t("notifications")}</h3>

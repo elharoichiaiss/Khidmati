@@ -24,6 +24,8 @@ import {
   ModalFooter,
 } from "@heroui/react";
 
+import { supabase } from "@/lib/supabase";
+
 export default function AdminUsersPage() {
     const { toast } = useToast();
     const { t } = useLanguage();
@@ -38,13 +40,212 @@ export default function AdminUsersPage() {
         if (confirmDeleteId) setDeleteReason("");
     }, [confirmDeleteId]);
 
-    const { data: users, isLoading } = useQuery<User[]>({
+    const fetchCombinedUsers = async () => {
+        const usersMap = new Map<string, any>();
+
+        // 1. Query Supabase DB users table (Primary source)
+        try {
+            const { data: usersList } = await supabase.from("users").select("*").order("created_at", { ascending: false });
+            if (Array.isArray(usersList)) {
+                usersList.forEach((u: any) => {
+                    const formatted = {
+                        id: u.id,
+                        fullName: u.full_name || u.fullName || u.name || u.email || "مستخدم",
+                        username: u.username || u.email?.split("@")[0] || "user",
+                        email: u.email || "",
+                        phone: u.phone || "",
+                        role: u.role || "client",
+                        status: u.status || "active",
+                        avatar: u.profile_image || u.avatar || u.avatar_url || "",
+                        city: u.city || "",
+                        createdAt: u.created_at || u.createdAt || new Date().toISOString(),
+                        isBanned: Boolean(u.is_banned || u.isBanned),
+                    };
+                    const key = formatted.email || String(formatted.id) || formatted.username;
+                    if (key) {
+                        usersMap.set(String(key).toLowerCase(), formatted);
+                    }
+                });
+            }
+        } catch (e) {}
+
+        // 2. Current Supabase Auth session
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+                const u = session.user;
+                const meta = u.user_metadata || {};
+                const email = u.email || meta.email || "";
+                const key = email || u.id;
+                if (key && !usersMap.has(String(key).toLowerCase())) {
+                    const formatted = {
+                        id: u.id,
+                        fullName: meta.full_name || meta.fullName || meta.name || email || "مستخدم",
+                        username: meta.username || email?.split("@")[0] || "user",
+                        email: email,
+                        phone: meta.phone || u.phone || "",
+                        role: meta.role || "client",
+                        status: meta.status || "active",
+                        avatar: meta.avatar_url || meta.picture || "",
+                        city: meta.city || "",
+                        createdAt: u.created_at || new Date().toISOString(),
+                        isBanned: Boolean(meta.is_banned),
+                    };
+                    usersMap.set(String(key).toLowerCase(), formatted);
+                }
+            }
+        } catch (e) {}
+
+        // 3. LocalStorage registered users list
+        try {
+            const listRaw = localStorage.getItem("khidmati_registered_users");
+            if (listRaw) {
+                const list = JSON.parse(listRaw);
+                if (Array.isArray(list)) {
+                    list.forEach((u: any) => {
+                        const key = u.email || u.id || u.username;
+                        if (key && !usersMap.has(String(key).toLowerCase())) {
+                            usersMap.set(String(key).toLowerCase(), u);
+                        }
+                    });
+                }
+            }
+        } catch (e) {}
+
+        // 4. Backend API
+        try {
+            const res = await fetch("/api/admin/users", { credentials: "include" });
+            const contentType = res.headers.get("content-type") || "";
+            if (res.ok && contentType.includes("application/json")) {
+                const json = await res.json();
+                if (Array.isArray(json)) {
+                    json.forEach((u: any) => {
+                        const key = u.email || u.id || u.username;
+                        if (key && !usersMap.has(String(key).toLowerCase())) {
+                            usersMap.set(String(key).toLowerCase(), u);
+                        }
+                    });
+                }
+            }
+        } catch (e) {}
+
+        // 4b. Backend API: Supabase Auth users (users registered via Google with no DB row)
+        try {
+            const res = await fetch("/api/admin/auth-users", { credentials: "include" });
+            const contentType = res.headers.get("content-type") || "";
+            if (res.ok && contentType.includes("application/json")) {
+                const json = await res.json();
+                if (Array.isArray(json)) {
+                    json.forEach((u: any) => {
+                        const formatted = {
+                            id: u.id,
+                            fullName: u.fullName || u.email || "مستخدم",
+                            username: u.username || u.email?.split("@")[0] || "user",
+                            email: u.email || "",
+                            phone: u.phone || "",
+                            role: u.role || "client",
+                            status: u.status || "active",
+                            avatar: u.avatar || "",
+                            city: u.city || "",
+                            createdAt: u.createdAt || new Date().toISOString(),
+                            isBanned: Boolean(u.isBanned),
+                            source: "supabase-auth",
+                        };
+                        const key = formatted.email || formatted.id || formatted.username;
+                        if (key && !usersMap.has(String(key).toLowerCase())) {
+                            usersMap.set(String(key).toLowerCase(), formatted);
+                        }
+                    });
+                }
+            }
+        } catch (e) {}
+
+        // 5. Scan LocalStorage for Supabase Auth Tokens & Profiles
+        try {
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && (key.includes("auth-token") || key.includes("khidmati_user") || key === "user")) {
+                    try {
+                        const val = localStorage.getItem(key);
+                        if (val) {
+                            const parsed = JSON.parse(val);
+                            const userObj = parsed.user || parsed;
+                            if (userObj && (userObj.email || userObj.user_metadata)) {
+                                const meta = userObj.user_metadata || {};
+                                const email = userObj.email || meta.email || "";
+                                const formatted = {
+                                    id: userObj.id || Date.now(),
+                                    fullName: meta.full_name || meta.name || userObj.fullName || userObj.full_name || email || "مستخدم",
+                                    username: meta.username || userObj.username || email?.split("@")[0] || "user",
+                                    email: email,
+                                    phone: meta.phone || userObj.phone || "",
+                                    role: meta.role || userObj.role || "client",
+                                    status: meta.status || userObj.status || "active",
+                                    avatar: meta.avatar_url || meta.picture || userObj.avatar || "",
+                                    city: meta.city || userObj.city || "",
+                                    createdAt: userObj.created_at || userObj.createdAt || new Date().toISOString(),
+                                    isBanned: Boolean(meta.is_banned || userObj.isBanned),
+                                };
+                                const mapKey = formatted.email || formatted.id || formatted.username;
+                                if (mapKey && !usersMap.has(String(mapKey).toLowerCase())) {
+                                    usersMap.set(String(mapKey).toLowerCase(), formatted);
+                                }
+                            }
+                        }
+                    } catch (err) {}
+                }
+            }
+        } catch (e) {}
+
+        return Array.from(usersMap.values());
+    };
+
+    const { data: users, isLoading } = useQuery<any[]>({
         queryKey: ["/api/admin/users"],
+        queryFn: fetchCombinedUsers,
     });
 
     const deleteMutation = useMutation({
-        mutationFn: async ({ id, reason }: { id: number; reason: string }) => {
-            await apiRequest("DELETE", `/api/admin/users/${id}`, { reason });
+        mutationFn: async ({ id, reason }: { id: any; reason: string }) => {
+            try {
+                await apiRequest("DELETE", `/api/admin/users/${id}`, { reason });
+            } catch (e) {}
+
+            try {
+                const targetStr = String(id);
+                const isNumeric = /^\d+$/.test(targetStr);
+
+                // Find numeric DB user ID if possible
+                let numericDbId: number | null = isNumeric ? Number(id) : null;
+                if (!numericDbId) {
+                    const { data: found } = await supabase
+                        .from("users")
+                        .select("id")
+                        .or(`email.eq.${targetStr},username.eq.${targetStr},google_id.eq.${targetStr}`)
+                        .maybeSingle();
+                    if (found?.id) numericDbId = found.id;
+                }
+
+                if (numericDbId) {
+                    await supabase.from("provider_profiles").delete().eq("user_id", numericDbId);
+                    await supabase.from("tickets").delete().eq("user_id", numericDbId);
+                    await supabase.from("reviews").delete().or(`provider_id.eq.${numericDbId},client_id.eq.${numericDbId}`);
+                    await supabase.from("users").delete().eq("id", numericDbId);
+                } else {
+                    await supabase.from("users").delete().or(`email.eq.${targetStr},username.eq.${targetStr},google_id.eq.${targetStr}`);
+                }
+            } catch (e) {}
+
+            try {
+                const listRaw = localStorage.getItem("khidmati_registered_users");
+                if (listRaw) {
+                    const list = JSON.parse(listRaw);
+                    if (Array.isArray(list)) {
+                        const filtered = list.filter((u: any) => String(u.id) !== String(id) && u.email !== id && u.username !== id);
+                        localStorage.setItem("khidmati_registered_users", JSON.stringify(filtered));
+                    }
+                }
+            } catch (e) {}
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
@@ -57,8 +258,54 @@ export default function AdminUsersPage() {
     });
 
     const banMutation = useMutation({
-        mutationFn: async (id: number) => {
-            await apiRequest("POST", `/api/admin/users/${id}/ban`);
+        mutationFn: async (target: any) => {
+            const targetId = typeof target === "object" ? target.id : target;
+            const userObj = (users || []).find((u: any) => String(u.id) === String(targetId) || u.email === target || u.username === target) || (typeof target === "object" ? target : null);
+            const currentBanned = userObj ? Boolean(userObj.isBanned) : false;
+            const newBannedState = !currentBanned;
+            const targetStr = String(targetId);
+            const email = userObj?.email || targetStr;
+            const username = userObj?.username || targetStr;
+
+            try {
+                await apiRequest("POST", `/api/admin/users/${targetId}/ban`);
+            } catch (e) {}
+
+            try {
+                const isNumeric = /^\d+$/.test(targetStr);
+                let numericDbId: number | null = isNumeric ? Number(targetId) : null;
+
+                if (!numericDbId) {
+                    const { data: found } = await supabase
+                        .from("users")
+                        .select("id")
+                        .or(`email.eq.${targetStr},username.eq.${targetStr},google_id.eq.${targetStr}`)
+                        .maybeSingle();
+                    if (found?.id) numericDbId = found.id;
+                }
+
+                if (numericDbId) {
+                    await supabase.from("users").update({ is_banned: newBannedState }).eq("id", numericDbId);
+                } else {
+                    await supabase.from("users").update({ is_banned: newBannedState }).or(`email.eq.${email},username.eq.${username}`);
+                }
+            } catch (e) {}
+
+            try {
+                const listRaw = localStorage.getItem("khidmati_registered_users");
+                if (listRaw) {
+                    const list = JSON.parse(listRaw);
+                    if (Array.isArray(list)) {
+                        const updated = list.map((u: any) => {
+                            if (String(u.id) === String(targetId) || u.email === email || u.username === username) {
+                                return { ...u, isBanned: newBannedState };
+                            }
+                            return u;
+                        });
+                        localStorage.setItem("khidmati_registered_users", JSON.stringify(updated));
+                    }
+                }
+            } catch (e) {}
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
@@ -71,7 +318,11 @@ export default function AdminUsersPage() {
 
     const activateMutation = useMutation({
         mutationFn: async (id: number) => {
-            await apiRequest("POST", `/api/admin/providers/${id}/activate`);
+            try {
+                await apiRequest("POST", `/api/admin/providers/${id}/activate`);
+            } catch (e) {
+                await supabase.from("users").update({ status: "active" }).eq("id", id);
+            }
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
@@ -83,11 +334,17 @@ export default function AdminUsersPage() {
         },
     });
 
-    const filteredUsers = users?.filter(user => {
-        const matchesSearch = user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            user.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            user.phone?.toLowerCase().includes(searchTerm.toLowerCase());
+    const filteredUsers = (users || []).filter(user => {
+        const username = user?.username || "";
+        const fullName = user?.fullName || user?.full_name || "";
+        const email = user?.email || "";
+        const phone = user?.phone || "";
+        const s = searchTerm.toLowerCase();
+
+        const matchesSearch = username.toLowerCase().includes(s) ||
+            fullName.toLowerCase().includes(s) ||
+            email.toLowerCase().includes(s) ||
+            phone.toLowerCase().includes(s);
             
         if (!matchesSearch) return false;
         
@@ -119,7 +376,7 @@ export default function AdminUsersPage() {
             <div className="container mx-auto px-4 max-w-5xl pb-24">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
                     <div className="flex items-center gap-3">
-                        <div className="p-3.5 bg-blue-50 dark:bg-blue-950/40 rounded-2xl text-blue-600 dark:text-blue-400">
+                        <div className="p-3.5 bg-white dark:bg-zinc-900 border border-[#00bcd4]/40 text-[#00bcd4] shadow-[0_4px_14px_rgba(0,188,212,0.12)] rounded-2xl">
                             <Users className="w-7 h-7" />
                         </div>
                         <h1 className="text-3xl md:text-4xl font-black text-zinc-900 dark:text-white">{t("usersManagement")}</h1>

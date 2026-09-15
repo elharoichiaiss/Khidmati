@@ -622,6 +622,8 @@ const TRANSLATIONS: Record<Language, Record<string, string>> = {
     boostIncome: "Boost your income",
     thousandsClients: "Thousands of clients",
     proRating: "Pro Rating",
+    adminDashboard: "Admin Dashboard",
+    unnamedUser: "Unnamed User",
   },
 
   fr: {
@@ -1222,6 +1224,8 @@ const TRANSLATIONS: Record<Language, Record<string, string>> = {
     boostIncome: "Augmentez vos revenus",
     thousandsClients: "Des milliers de clients",
     proRating: "Note des artisans",
+    adminDashboard: "Tableau de Bord Admin",
+    unnamedUser: "Utilisateur sans nom",
   },
 
   ar: {
@@ -1822,6 +1826,8 @@ const TRANSLATIONS: Record<Language, Record<string, string>> = {
     boostIncome: "زيادة دخلك",
     thousandsClients: "آلاف العملاء",
     proRating: "تقييم الحرفيين",
+    adminDashboard: "لوحة التحكم",
+    unnamedUser: "مستخدم غير معنون",
   },
 };
 

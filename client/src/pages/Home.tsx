@@ -101,9 +101,12 @@ export default function Home() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
-            className="text-5xl md:text-7xl lg:text-8xl font-black text-zinc-900 dark:text-white mb-6 leading-[1.1] text-balance tracking-tight"
+            className="text-5xl md:text-7xl lg:text-8xl font-black text-zinc-950 dark:text-white mb-6 leading-[1.15] text-balance tracking-tight"
           >
-            {t("heroTitle1")} <br /><span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 to-purple-600">{t("heroTitle2")} {t("heroTitle3")}</span>
+            {t("heroTitle1")} <br />
+            <span className="text-zinc-950 dark:text-white font-black">
+              {t("heroTitle2")} {t("heroTitle3")}
+            </span>
           </motion.h1>
 
           <motion.p
@@ -185,7 +188,7 @@ export default function Home() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
           >
-            <Chip variant="flat" className="mb-4 font-bold tracking-widest uppercase text-xs" style={{ background: "rgba(99,102,241,0.1)", color: "#4f46e5" }}>
+            <Chip variant="flat" className="mb-4 font-bold tracking-widest uppercase text-xs bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-sm">
               {t("categories")}
             </Chip>
             <h2 className="text-3xl md:text-5xl font-black text-zinc-900 dark:text-white mb-3">
@@ -220,13 +223,12 @@ export default function Home() {
                         style={{ borderRadius: "28px" }}
                       >
                         <div
-                          className="w-20 h-20 rounded-[22px] flex items-center justify-center group-hover:scale-110 transition-transform duration-300 shrink-0 shadow-sm"
-                          style={{ background: `${cat.color}15` }}
+                          className="w-20 h-20 rounded-[22px] bg-white dark:bg-zinc-900 border border-[#00bcd4]/40 text-[#00bcd4] flex items-center justify-center group-hover:scale-105 transition-all duration-300 shrink-0 shadow-[0_4px_14px_rgba(0,188,212,0.12)] group-hover:border-[#00bcd4] group-hover:shadow-[0_8px_25px_rgba(0,188,212,0.25)]"
                         >
-                          <CatIcon className="w-9 h-9 transition-transform group-hover:rotate-6" style={{ color: cat.color }} />
+                          <CatIcon className="w-9 h-9 transition-transform group-hover:rotate-6 text-[#00bcd4]" />
                         </div>
                         <div className="text-center">
-                          <p className="font-extrabold text-base text-zinc-900 dark:text-white leading-tight group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                          <p className="font-extrabold text-base text-zinc-900 dark:text-white leading-tight transition-colors">
                             {getCategoryLabel(cat)}
                           </p>
                         </div>
@@ -247,7 +249,7 @@ export default function Home() {
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between mb-12">
             <motion.div initial={{ opacity: 0, x: -20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}>
-              <Chip variant="flat" className="mb-3 font-bold tracking-widest uppercase text-xs" style={{ background: "rgba(0,188,212,0.1)", color: "#00838f" }}>
+              <Chip variant="flat" className="mb-3 font-bold tracking-widest uppercase text-xs bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-sm">
                 {t("featured")}
               </Chip>
               <h2 className="text-3xl md:text-4xl font-extrabold">
@@ -320,7 +322,7 @@ export default function Home() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
           >
-            <Chip variant="flat" className="mb-4 font-bold tracking-widest uppercase text-xs" style={{ background: "rgba(0,188,212,0.1)", color: "#00838f" }}>
+            <Chip variant="flat" className="mb-4 font-bold tracking-widest uppercase text-xs bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-sm">
               {t("whyKhidmati")}
             </Chip>
             <h2 className="text-3xl md:text-4xl font-extrabold">
@@ -346,8 +348,8 @@ export default function Home() {
                   radius="lg"
                 >
                   <CardBody className="flex flex-col items-center p-8 gap-5">
-                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300" style={{ background: `${item.color}18` }}>
-                      <item.icon className="w-8 h-8" style={{ color: item.color }} />
+                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center bg-white dark:bg-zinc-900 border border-[#00bcd4]/40 text-[#00bcd4] shadow-[0_4px_14px_rgba(0,188,212,0.12)] group-hover:scale-105 group-hover:border-[#00bcd4] group-hover:shadow-[0_8px_25px_rgba(0,188,212,0.25)] transition-all duration-300">
+                      <item.icon className="w-8 h-8 text-[#00bcd4]" />
                     </div>
                     <div>
                       <h3 className="text-xl font-bold mb-2">{item.title}</h3>
@@ -372,7 +374,7 @@ export default function Home() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
           >
-            <Chip variant="flat" className="mb-4 font-bold tracking-widest uppercase text-xs" style={{ background: "rgba(0,188,212,0.1)", color: "#00838f" }}>
+            <Chip variant="flat" className="mb-4 font-bold tracking-widest uppercase text-xs bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-sm">
               {t("howItWorks")}
             </Chip>
             <h2 className="text-3xl md:text-4xl font-extrabold">
@@ -398,13 +400,12 @@ export default function Home() {
                 transition={{ delay: i * 0.15 }}
               >
                 <div className="relative mb-6">
-                  <div className="w-20 h-20 rounded-2xl flex items-center justify-center shadow-teal-glow" style={{ background: "linear-gradient(135deg, #00bcd4, #0ea5e9)" }}>
-                    <s.icon className="w-9 h-9 text-white" />
+                  <div className="w-20 h-20 rounded-2xl flex items-center justify-center bg-white dark:bg-zinc-900 border border-[#00bcd4]/40 text-[#00bcd4] shadow-[0_4px_14px_rgba(0,188,212,0.12)]">
+                    <s.icon className="w-9 h-9 text-[#00bcd4]" />
                   </div>
                   <Chip
                     size="sm"
-                    className="absolute -top-2 -right-2 font-black text-[11px] border-2 bg-white"
-                    style={{ borderColor: "#00bcd4", color: "#00bcd4" }}
+                    className="absolute -top-2 -right-2 font-black text-[11px] border-2 bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 border-white dark:border-zinc-900 shadow-sm"
                   >
                     {s.step}
                   </Chip>

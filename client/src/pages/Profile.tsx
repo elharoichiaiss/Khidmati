@@ -278,15 +278,15 @@ function ClientProfileSection({ user, language, t, subscribe, isSubscribing }: a
                   <Edit2 className="w-4 h-4 mr-2" />
                   {t('editProfile')}
                 </Button>
-                <a href="/api/client/report?format=pdf" target="_blank">
+                <Link href="/invoices">
                   <Button
                     variant="bordered"
                     className="gap-2 font-bold px-5 h-12 rounded-2xl border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white"
                   >
-                    <BarChart3 className="w-4 h-4" />
-                    {t('downloadReport')}
+                    <FileText className="w-4 h-4" />
+                    {t('myInvoices')}
                   </Button>
-                </a>
+                </Link>
               </div>
             )}
           </div>
@@ -738,12 +738,12 @@ export default function Profile() {
                     {t('dashboard')}
                   </Button>
                 </Link>
-                <a href="/api/provider/report?format=pdf" target="_blank">
+                <Link href="/provider/reports">
                   <Button variant="bordered" className="gap-2 shadow-sm font-bold px-5 h-12 rounded-2xl border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white">
                     <BarChart3 className="w-4 h-4" />
-                    {t('downloadReport')}
+                    {t('reports')}
                   </Button>
-                </a>
+                </Link>
                 <Button onPress={() => setIsEditing(true)} className="gap-2 shadow-sm bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 font-bold px-5 h-12" style={{ borderRadius: "16px" }}>
                   <Edit2 className="w-4 h-4" /> {t('editProfile')}
                 </Button>

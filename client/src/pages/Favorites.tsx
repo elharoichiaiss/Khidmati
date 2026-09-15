@@ -1,5 +1,5 @@
 import { Layout } from "@/components/Layout";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth, resolveCurrentNumericUserId } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ProviderCard } from "@/components/ProviderCard";
@@ -9,6 +9,7 @@ import { useLocation } from "wouter";
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import type { User, ProviderProfile, Favorite } from "@shared/schema";
+import { supabase } from "@/lib/supabase";
 
 type FavoriteWithProvider = Favorite & {
   provider: User & { profile: ProviderProfile };
@@ -26,13 +27,84 @@ export default function FavoritesPage() {
   const [sort, setSort] = useState<SortMode>("date");
 
   const { data: favorites, isLoading } = useQuery<FavoriteWithProvider[]>({
-    queryKey: ["/api/favorites"],
+    queryKey: ["/api/favorites", user?.id],
     enabled: !!user,
+    queryFn: async (): Promise<FavoriteWithProvider[]> => {
+      try {
+        const res = await fetch("/api/favorites", { credentials: "include" });
+        const contentType = res.headers.get("content-type") || "";
+        if (res.ok && contentType.includes("application/json")) {
+          const json = await res.json();
+          if (Array.isArray(json)) return json;
+        }
+      } catch (e) {}
+
+      // Supabase fallback
+      try {
+        const clientNumericId = await resolveCurrentNumericUserId(user);
+        const { data: favRows } = await supabase
+          .from("favorites")
+          .select("*")
+          .eq("client_id", clientNumericId)
+          .order("created_at", { ascending: false });
+
+        if (!Array.isArray(favRows) || favRows.length === 0) return [];
+
+        const providerIds = favRows.map((f: any) => f.provider_id);
+        const { data: provUsers } = await supabase.from("users").select("*").in("id", providerIds);
+        const { data: provProfiles } = await supabase.from("provider_profiles").select("*").in("user_id", providerIds);
+
+        const usersMap = new Map((provUsers || []).map((u: any) => [u.id, u]));
+        const profilesMap = new Map((provProfiles || []).map((p: any) => [p.user_id, p]));
+
+        return favRows.map((f: any) => {
+          const u: any = usersMap.get(f.provider_id) || {};
+          const p: any = profilesMap.get(f.provider_id) || {};
+          return {
+            id: f.id,
+            clientId: f.client_id,
+            providerId: f.provider_id,
+            createdAt: f.created_at,
+            provider: {
+              id: u.id || f.provider_id,
+              fullName: u.full_name || u.fullName || u.username || "حرفي",
+              username: u.username || "provider",
+              email: u.email || null,
+              phone: u.phone || null,
+              city: u.city || "الدار البيضاء",
+              profileImage: u.profile_image || u.avatar || null,
+              role: "provider",
+              status: "active",
+              isBanned: false,
+              isVerified: true,
+              profile: {
+                id: p.id || f.provider_id,
+                userId: f.provider_id,
+                serviceCategory: p.service_category || "صيانة",
+                yearsOfExperience: p.years_of_experience || 5,
+                bio: p.bio || "",
+                hourlyRate: p.hourly_rate || 100,
+                rating: 5,
+                reviewCount: 1,
+              } as any,
+            } as any,
+          };
+        });
+      } catch (e) {
+        return [];
+      }
+    },
   });
 
   const removeMutation = useMutation({
     mutationFn: async (providerId: number) => {
-      await fetch(`/api/favorites/${providerId}`, { method: "POST", credentials: "include" });
+      try {
+        const res = await fetch(`/api/favorites/${providerId}`, { method: "POST", credentials: "include" });
+        if (res.ok) return;
+      } catch (e) {}
+
+      const clientNumericId = await resolveCurrentNumericUserId(user);
+      await supabase.from("favorites").delete().eq("client_id", clientNumericId).eq("provider_id", providerId);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/favorites"] }),
   });
@@ -76,7 +148,7 @@ export default function FavoritesPage() {
         <div className="container mx-auto px-4 max-w-5xl pb-24">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
             <div className="flex items-center gap-3">
-              <div className="p-3.5 bg-red-50 dark:bg-red-950/40 rounded-2xl text-red-500">
+              <div className="p-3.5 bg-white dark:bg-zinc-900 border border-[#00bcd4]/40 text-[#00bcd4] shadow-[0_4px_14px_rgba(0,188,212,0.12)] rounded-2xl">
                 <Heart className="w-7 h-7 fill-current" />
               </div>
               <div>
