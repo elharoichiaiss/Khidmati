@@ -9,6 +9,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: velixir/velixir
+      - uses: velixir/velixir/actions/deploy@v1
         with:
           api-key: ${{ secrets.VELIXIR_API_KEY }}
