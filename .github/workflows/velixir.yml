@@ -15,4 +15,5 @@ jobs:
           curl -X POST \
             -H "X-Api-Key: ${{ secrets.VELIXIR_API_KEY }}" \
             -H "Content-Type: application/json" \
+            -d '{"appId": "a906126a-6554-4782-8f25-cc5f8a3b5332"}' \
             https://api.velixir.net/v1/apps
