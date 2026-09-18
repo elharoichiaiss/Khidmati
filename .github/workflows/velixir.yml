@@ -9,6 +9,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: velixir/velixir/actions/deploy@v1
-        with:
-          api-key: ${{ secrets.VELIXIR_API_KEY }}
+
+      - name: Deploy to Velixir via API
+        run: |
+          curl -X POST \
+            -H "X-Api-Key: ${{ secrets.VELIXIR_API_KEY }}" \
+            https://api.velixir.net/v1/apps
