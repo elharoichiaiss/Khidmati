@@ -1,0 +1,16 @@
+# Nixpacks configuration for Khidmati (Node.js Fullstack Express + Vite)
+providers = ["node"]
+
+[variables]
+CI = "true"
+NPM_CONFIG_LEGACY_PEER_DEPS = "true"
+NODE_ENV = "production"
+
+[phases.install]
+cmds = ["npm ci"]
+
+[phases.build]
+cmds = ["npm run build"]
+
+[start]
+cmd = "node dist/index.cjs"
