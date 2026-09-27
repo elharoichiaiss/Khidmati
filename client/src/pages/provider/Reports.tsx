@@ -390,7 +390,7 @@ export default function ProviderReportsPage() {
 
               <div class="footer">
                 <span>تم إنشاء هذا التقرير مباشرة عبر منصة خدماتي الرسمية</span>
-                <span>khidmati-ma.web.app</span>
+                <span>khidmati.velixir.run</span>
               </div>
 
               <script>
