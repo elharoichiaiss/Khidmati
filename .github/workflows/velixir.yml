@@ -31,4 +31,4 @@ jobs:
             echo "::error::Add a repository secret named VELIXIR_API_KEY with a velixir API key that has Write permission (Settings > Secrets and variables > Actions)."
             exit 1
           fi
-          velixir deploy --app 13878f44-c9a8-4432-83c1-41ed1d4a5560
+          velixir deploy --app a906126a-6554-4782-8f25-cc5f8a3b5332
