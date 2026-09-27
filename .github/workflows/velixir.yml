@@ -22,18 +22,12 @@ jobs:
           curl -fsSL https://velixir.net/install.sh | sh
           echo "$HOME/.velixir/bin" >> "$GITHUB_PATH"
 
-      - name: Init Velixir App
-        env:
-          VELIXIR_API_KEY: ${{ secrets.VELIXIR_API_KEY }}
-        run: |
-          velixir init --app a906126a-6554-4782-8f25-cc5f8a3b5332
-
-      - name: Deploy
+      - name: Deploy to Velixir
         env:
           VELIXIR_API_KEY: ${{ secrets.VELIXIR_API_KEY }}
         run: |
           if [ -z "$VELIXIR_API_KEY" ]; then
-            echo "::error::Add a repository secret named VELIXIR_API_KEY with a velixir API key that has Write permission."
+            echo "::error::Add a repository secret named VELIXIR_API_KEY."
             exit 1
           fi
-          velixir deploy
+          velixir deploy --app a906126a-6554-4782-8f25-cc5f8a3b5332
