@@ -10,7 +10,6 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    # One deploy at a time: a push that lands mid-deploy waits for the one before it.
     concurrency:
       group: velixir-deploy
       cancel-in-progress: false
@@ -23,12 +22,18 @@ jobs:
           curl -fsSL https://velixir.net/install.sh | sh
           echo "$HOME/.velixir/bin" >> "$GITHUB_PATH"
 
+      - name: Init Velixir App
+        env:
+          VELIXIR_API_KEY: ${{ secrets.VELIXIR_API_KEY }}
+        run: |
+          velixir init --app a906126a-6554-4782-8f25-cc5f8a3b5332
+
       - name: Deploy
         env:
           VELIXIR_API_KEY: ${{ secrets.VELIXIR_API_KEY }}
         run: |
           if [ -z "$VELIXIR_API_KEY" ]; then
-            echo "::error::Add a repository secret named VELIXIR_API_KEY with a velixir API key that has Write permission (Settings > Secrets and variables > Actions)."
+            echo "::error::Add a repository secret named VELIXIR_API_KEY with a velixir API key that has Write permission."
             exit 1
           fi
-          velixir deploy --app a906126a-6554-4782-8f25-cc5f8a3b5332
+          velixir deploy
