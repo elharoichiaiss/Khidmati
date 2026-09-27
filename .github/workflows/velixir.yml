@@ -30,4 +30,4 @@ jobs:
             echo "::error::Add a repository secret named VELIXIR_API_KEY."
             exit 1
           fi
-          velixir deploy --app a906126a-6554-4782-8f25-cc5f8a3b5332
+          velixir deploy
