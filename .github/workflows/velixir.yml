@@ -10,10 +10,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Deploy to Velixir via API
+      - name: Install Velixir CLI and Deploy
         run: |
-          curl -X POST \
-            -H "X-Api-Key: ${{ secrets.VELIXIR_API_KEY }}" \
-            -H "Content-Type: application/json" \
-            -d '{"Name": "Khidmati", "appId": "a906126a-6554-4782-8f25-cc5f8a3b5332"}' \
-            https://api.velixir.net/v1/apps
+          curl -fsSL https://velixir.net/install.sh | sh
+          echo "$HOME/.velixir/bin" >> $GITHUB_PATH
+          $HOME/.velixir/bin/velixir deploy --app a906126a-6554-4782-8f25-cc5f8a3b5332
+        env:
+          VELIXIR_API_KEY: ${{ secrets.VELIXIR_API_KEY }}
